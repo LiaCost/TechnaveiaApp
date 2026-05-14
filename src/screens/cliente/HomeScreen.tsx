@@ -9,7 +9,7 @@ import { HomeHeader } from '../../components/HomeHeader';
 
 const CATEGORIES = [
   { id: '1', title: 'PCs', icon: 'desktop-outline' },
-  { id: '2', title: 'Celulares', icon: 'smartphone-outline' },
+  { id: '2', title: 'Celulares', icon: 'phone-portrait-outline' }, // Ícone corrigido aqui
   { id: '3', title: 'Redes', icon: 'wifi-outline' },
   { id: '4', title: 'Automação', icon: 'home-outline' },
   { id: '5', title: 'Segurança', icon: 'videocam-outline' },

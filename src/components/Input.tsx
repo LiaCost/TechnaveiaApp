@@ -3,46 +3,67 @@ import {
   TextInput, 
   StyleSheet, 
   useColorScheme, 
-  TextInputProps // Importamos o tipo das props padrão
+  TextInputProps,
+  View
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '.././theme';
 
-// Estendemos nossa interface com TextInputProps
 interface Props extends TextInputProps {
   placeholder: string;
+  icon?: keyof typeof Ionicons.glyphMap; // 👈 prop nova
 }
 
-// Usamos o operador rest (...) para pegar todas as outras propriedades
-export function Input({ placeholder, ...rest }: Props) {
+export function Input({ placeholder, icon, ...rest }: Props) {
   const colorScheme = useColorScheme();
   const currentTheme = colorScheme === 'dark' ? theme.dark : theme.light;
 
   return (
-    <TextInput 
-      placeholder={placeholder}
-      placeholderTextColor={currentTheme.textSecondary}
-      // Repassamos todas as propriedades (value, onChangeText, keyboardType, etc)
-      {...rest} 
-      style={[
-        styles.input, 
-        { 
-          backgroundColor: currentTheme.surface, 
-          color: currentTheme.text,
-          borderColor: currentTheme.border
-        }
-      ]}
-    />
+    <View style={[
+      styles.container, 
+      { 
+        backgroundColor: currentTheme.surface, 
+        borderColor: currentTheme.border
+      }
+    ]}>
+      {icon && (
+        <Ionicons 
+          name={icon} 
+          size={20} 
+          color={currentTheme.textSecondary} 
+          style={styles.icon} 
+        />
+      )}
+      <TextInput 
+        placeholder={placeholder}
+        placeholderTextColor={currentTheme.textSecondary}
+        {...rest} 
+        style={[
+          styles.input, 
+          { color: currentTheme.text }
+        ]}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  input: {
+  container: {
     width: '100%',
     height: 56,
     borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 16,
     marginBottom: 16,
+    flexDirection: 'row',   // ícone e input lado a lado
+    alignItems: 'center',   // alinha verticalmente ao centro
+  },
+  icon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,               // ocupa o espaço restante após o ícone
     fontSize: 16,
+    height: '100%',
   }
 });

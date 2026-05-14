@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react'; // Adicionado useState
 import { 
   View, 
   Text, 
@@ -10,22 +10,23 @@ import {
 import { theme, colors } from '../../theme';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
-import { useAuth } from '../../contexts/AuthContext'; // Importando o cérebro do App
+import { useAuth } from '../../contexts/AuthContext';
 
 // Importando ícones do Expo
 import { Ionicons, FontAwesome } from '@expo/vector-icons'; 
 
 export function LoginScreen({ navigation }: any) {
-  const { signIn } = useAuth(); // Pegando a função de login
+  const { signIn } = useAuth();
   const colorScheme = useColorScheme();
   const currentTheme = colorScheme === 'dark' ? theme.dark : theme.light;
   
-  // Define a cor padrão dos ícones baseada no tema
+  // Estado para o "Lembrar senha"
+  const [rememberMe, setRememberMe] = useState(false);
+
   const iconColor = colorScheme === 'dark' ? colors.light : colors.dark1;
    
   const handleLogin = () => {
-    // Simulação: Aqui você escolheria se entra como client, tech ou admin
-    // No futuro, isso viria da resposta do seu Banco de Dados
+    // No futuro, aqui você checaria se rememberMe é true para salvar os dados
     signIn('client'); 
   };
 
@@ -41,22 +42,38 @@ export function LoginScreen({ navigation }: any) {
           A solução tecnológica na palma da sua mão.
         </Text>
 
-        {/* Inputs e Recuperação de Senha */}
+        {/* Inputs */}
         <View style={styles.inputContainer}>
-          <Input placeholder="E-mail" />
-          <Input placeholder="Senha" secureTextEntry />
+          <Input placeholder="E-mail" icon="mail-outline" />
+          <Input placeholder="Senha" secureTextEntry icon="lock-closed-outline" />
           
-          <TouchableOpacity 
-            style={styles.forgotPasswordButton}
-            onPress={() => navigation.navigate('ForgotPassword')}
-          >
-            <Text style={[styles.forgotPasswordText, { color: currentTheme.textSecondary }]}>
-              Esqueceu a senha?
-            </Text>
-          </TouchableOpacity>
+          {/* Nova Linha: Lembrar-me e Esqueceu a Senha */}
+          <View style={styles.rowAction}>
+            <TouchableOpacity 
+              style={styles.rememberMeContainer} 
+              onPress={() => setRememberMe(!rememberMe)}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={rememberMe ? "checkbox" : "square-outline"} 
+                size={20} 
+                color={rememberMe ? colors.primary : currentTheme.textSecondary} 
+              />
+              <Text style={[styles.rememberMeText, { color: currentTheme.textSecondary }]}>
+                Lembrar-me
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('ForgotPassword')}
+            >
+              <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
+                Esqueceu a senha?
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Agora o botão chama a função handleLogin que usa o Contexto */}
         <Button title="Entrar" onPress={handleLogin} />
 
         {/* Divisor */}
@@ -70,14 +87,14 @@ export function LoginScreen({ navigation }: any) {
         <View style={styles.socialContainer}>
           <TouchableOpacity 
             style={[styles.socialButton, { backgroundColor: currentTheme.surface, borderColor: currentTheme.border }]}
-            onPress={() => signIn('admin')} // Atalho secreto para testar Admin
+            onPress={() => signIn('admin')}
           >
             <FontAwesome name="google" size={24} color={iconColor} />
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.socialButton, { backgroundColor: currentTheme.surface, borderColor: currentTheme.border }]}
-            onPress={() => signIn('tech')} // Atalho secreto para testar Técnico
+            onPress={() => signIn('tech')}
           >
             <Ionicons name="logo-apple" size={24} color={iconColor} />
           </TouchableOpacity>
@@ -104,8 +121,29 @@ const styles = StyleSheet.create({
   logo: { fontSize: 36, fontWeight: 'bold', marginBottom: 8, letterSpacing: -1 },
   subtitle: { fontSize: 16, marginBottom: 32, textAlign: 'center' },
   inputContainer: { width: '100%', marginBottom: 24 },
-  forgotPasswordButton: { alignSelf: 'flex-end', marginTop: 8, paddingVertical: 4 },
-  forgotPasswordText: { fontSize: 14, fontWeight: '500' },
+  
+  // Estilo da nova linha de ações
+  rowAction: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    marginTop: 12,
+    width: '100%'
+  },
+  rememberMeContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
+  rememberMeText: { 
+    marginLeft: 8, 
+    fontSize: 14,
+    fontWeight: '500'
+  },
+  forgotPasswordText: { 
+    fontSize: 14, 
+    fontWeight: 'bold' 
+  },
+
   dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 20, width: '100%' },
   line: { flex: 1, height: 1 },
   dividerText: { marginHorizontal: 10, fontSize: 14 },
