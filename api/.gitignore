@@ -1,0 +1,23 @@
+# Dependências
+node_modules/
+
+# Banco de Dados Local (SQLite)
+sqlite.db
+sqlite.db-journal
+
+# Compilação e Build
+dist/
+build/
+
+# Variáveis de Ambiente (Segurança)
+.env
+.env.local
+
+# Logs e Cache
+npm-debug.log*
+.eslintcache
+.tsbuildinfo
+
+# Arquivos do Sistema Operacional
+.DS_Store
+Thumbs.db
