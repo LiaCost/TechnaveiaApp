@@ -24,7 +24,7 @@ export const usuarios = sqliteTable('usuarios', {
   cidadeId: integer('cidade_id').references(() => cidades.id),
 });
 
-// 4. Entidade Produto (Nova!)
+// 4. Entidade Produto 
 export const produtos = sqliteTable('produtos', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   nome: text('nome').notNull(),

@@ -5,6 +5,7 @@ import { SplashScreen } from '../screens/auth/SplashScreen'; // Movida para auth
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
+import { TesteSqliteScreen } from '../../src-api/screens/TesteSqliteScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -15,6 +16,7 @@ export function AuthStack() {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="TesteSqlite" component={TesteSqliteScreen}   options={{ title: 'Persistência Local SQLite' }} />
     </Stack.Navigator>
   );
 }

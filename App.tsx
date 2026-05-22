@@ -1,13 +1,14 @@
 import React from 'react';
-import { AuthProvider } from './src/contexts/AuthContext';
-import { AppNavigator } from './src/navigation';
 import { StatusBar } from 'react-native';
+// 1. Importa a nova tela que criamos baseada no PDF do professor
+import PersistenciaLocalScreen from './src-api/screens/PersistenciaLocalScreen';
 
 export default function App() {
   return (
-    <AuthProvider>
+    <>
       <StatusBar barStyle="default" />
-      <AppNavigator />
-    </AuthProvider>
+      {/* 2. Comentamos temporariamente a estrutura do grupo e chamamos a tela do PDF */}
+      <PersistenciaLocalScreen />
+    </>
   );
 }
