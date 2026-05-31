@@ -1,330 +1,975 @@
-import React, { useState } from 'react';
-import { 
-  View, Text, StyleSheet, SafeAreaView, ScrollView, 
-  TouchableOpacity, TextInput, Image, Alert 
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  TouchableOpacity, TextInput, Alert, Animated,
+  KeyboardAvoidingView, Platform, FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, theme } from '../../theme';
-import { Button } from '../../components/Button';
-import { ImageSelector } from '../../components/ImageSelector'; // Reutilizando o que criamos
-import { Calendar, LocaleConfig } from 'react-native-calendars';
+import * as ImagePicker from 'expo-image-picker';
+import { colors } from '../../theme';
 
-export function RequestServiceScreen({ navigation }: any) { 
-    const [isConfirmed, setIsConfirmed] = useState(false);
-    // Configuração do calendário para Português
-    LocaleConfig.locales['pt-br'] = {
-    monthNames: ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'],
-    dayNames: ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'],
-    dayNamesShort: ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],
-    today: 'Hoje'
-    };
-    LocaleConfig.defaultLocale = 'pt-br';
+// ─── Tipos ────────────────────────────────────────────────
 
-    // Dentro do componente:
-    const [selectedDate, setSelectedDate] = useState('');
-    const [selectedHour, setSelectedHour] = useState('');
+interface Category {
+  id: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  subcategories: string[];
+}
 
-    const hours = ['08:00', '09:00', '10:00', '14:00', '15:00', '16:00'];
+interface Technician {
+  id: string;
+  name: string;
+  specialty: string;
+  rating: number;
+  reviews: number;
+  distance: string;
+  price: string;
+  verified: boolean;
+  available: boolean;
+}
 
-  // Antigo
+interface ServiceRequest {
+  categoryId: string;
+  categoryLabel: string;
+  subcategory: string;
+  description: string;
+  photos: string[];
+  modalidade: 'presencial' | 'remoto';
+  endereco: string;
+  remotoSoftware: string;
+  isUrgent: boolean;
+  date: string;        // 'YYYY-MM-DD'
+  time: string;        // 'HH:MM'
+  technicianId: string | null;
+  anyTechnician: boolean;
+  notes: string;
+  aceitaTermos: boolean;
+}
+
+// ─── Dados mock ───────────────────────────────────────────
+
+const CATEGORIES: Category[] = [
+  {
+    id: 'pc', label: 'Computadores / Notebooks', icon: 'desktop-outline',
+    subcategories: ['Formatação', 'Lentidão / Vírus', 'Hardware (HD, RAM, Fonte)', 'Tela quebrada', 'Não liga', 'Outro'],
+  },
+  {
+    id: 'celular', label: 'Celulares / Tablets', icon: 'phone-portrait-outline',
+    subcategories: ['Tela quebrada', 'Bateria', 'Câmera', 'Placa-mãe', 'Software', 'Outro'],
+  },
+  {
+    id: 'redes', label: 'Redes e Internet', icon: 'wifi-outline',
+    subcategories: ['Instalação de roteador', 'Cabeamento', 'Lentidão na internet', 'Rede corporativa', 'Outro'],
+  },
+  {
+    id: 'automacao', label: 'Automação Residencial', icon: 'home-outline',
+    subcategories: ['Smart Home', 'Instalação de dispositivos', 'Integração de sistemas', 'Outro'],
+  },
+  {
+    id: 'cftv', label: 'Segurança Eletrônica', icon: 'videocam-outline',
+    subcategories: ['Instalação de câmeras', 'Manutenção de CFTV', 'Alarme', 'Controle de acesso', 'Outro'],
+  },
+  {
+    id: 'remoto', label: 'Suporte Remoto', icon: 'laptop-outline',
+    subcategories: ['Lentidão / Vírus', 'Configurações', 'Instalação de software', 'Erro no sistema', 'Outro'],
+  },
+  {
+    id: 'impressora', label: 'Impressoras / Periféricos', icon: 'print-outline',
+    subcategories: ['Não imprime', 'Atolamento de papel', 'Instalação de driver', 'Manutenção', 'Outro'],
+  },
+  {
+    id: 'tv', label: 'Smart TV / Home Theater', icon: 'tv-outline',
+    subcategories: ['Sem imagem', 'Sem som', 'Configuração de streaming', 'Instalação', 'Outro'],
+  },
+];
+
+const MOCK_TECHNICIANS: Technician[] = [
+  { id: '1', name: 'Ricardo Silva', specialty: 'Hardware & Redes', rating: 4.9, reviews: 128, distance: '2.5km', price: 'R$ 80–150', verified: true, available: true },
+  { id: '2', name: 'Ana Oliveira', specialty: 'Notebooks & Celulares', rating: 5.0, reviews: 74, distance: '3.8km', price: 'R$ 100–200', verified: true, available: true },
+  { id: '3', name: 'Marcos Paulo', specialty: 'Redes e Automação', rating: 4.7, reviews: 52, distance: '5.1km', price: 'R$ 70–130', verified: false, available: true },
+];
+
+const TIMES = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+
+// ─── Utilitários ──────────────────────────────────────────
+
+function getDatesFromToday(count: number): { label: string; value: string; dayName: string }[] {
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const value = d.toISOString().split('T')[0];
+    const dayName = i === 0 ? 'Hoje' : i === 1 ? 'Amanhã'
+      : d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+    const label = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+    results.push({ value, label, dayName });
+  }
+  return results;
+}
+
+const DATES = getDatesFromToday(7);
+
+// ─── Subcomponentes ───────────────────────────────────────
+
+function StepHeader({ step, total, title, sub, onBack }: {
+  step: number; total: number; title: string; sub: string; onBack: () => void;
+}) {
+  return (
+    <>
+      <View style={sh.header}>
+        <TouchableOpacity onPress={onBack} style={sh.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={colors.dark1} />
+        </TouchableOpacity>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={sh.stepLabel}>Passo {step} de {total}</Text>
+          <Text style={sh.title}>{title}</Text>
+        </View>
+      </View>
+      <View style={sh.progressBar}>
+        <View style={[sh.progressFill, { width: `${(step / total) * 100}%` }]} />
+      </View>
+      <Text style={sh.sub}>{sub}</Text>
+    </>
+  );
+}
+
+const sh = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingBottom: 12 },
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
+  stepLabel: { fontSize: 11, color: colors.primary, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  title: { fontSize: 20, fontWeight: '700', color: colors.dark1, marginTop: 2 },
+  progressBar: { height: 3, backgroundColor: '#E8EEFF', marginHorizontal: 20 },
+  progressFill: { height: 3, backgroundColor: colors.primary, borderRadius: 2 },
+  sub: { fontSize: 14, color: '#666', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4, lineHeight: 20 },
+});
+
+function NextButton({ label = 'Próximo', onPress, disabled = false }: {
+  label?: string; onPress: () => void; disabled?: boolean;
+}) {
+  return (
+    <View style={nb.wrap}>
+      <TouchableOpacity
+        style={[nb.btn, disabled && nb.disabled]}
+        onPress={onPress}
+        disabled={disabled}
+      >
+        <Text style={nb.text}>{label}</Text>
+        <Ionicons name="arrow-forward" size={18} color="#FFF" />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const nb = StyleSheet.create({
+  wrap: { padding: 20, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#EEE' },
+  btn: {
+    backgroundColor: colors.dark1, borderRadius: 14, height: 54,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,
+  },
+  disabled: { opacity: 0.35 },
+  text: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+});
+
+// ─── Tela principal ────────────────────────────────────────
+
+export function RequestServiceScreen({ navigation }: any) {
   const [step, setStep] = useState(1);
-  
-  // Estados do Pedido
-  const [description, setDescription] = useState('');
-  const [images, setImages] = useState<string[]>([]);
-  const [modalidade, setModalidade] = useState<'presencial' | 'remoto'>('presencial');
+  const TOTAL_STEPS = 6;
 
-  const nextStep = () => {
-    if (step === 1 && description.length < 20) {
-      Alert.alert("Detalhe melhor", "Por favor, descreva o problema com pelo menos 20 caracteres.");
+  const [req, setReq] = useState<ServiceRequest>({
+    categoryId: '', categoryLabel: '', subcategory: '',
+    description: '', photos: [],
+    modalidade: 'presencial', endereco: 'Av. Paulista, 1000 – São Paulo, SP',
+    remotoSoftware: '',
+    isUrgent: false, date: DATES[0].value, time: '',
+    technicianId: null, anyTechnician: false,
+    notes: '', aceitaTermos: false,
+  });
+
+  function set<K extends keyof ServiceRequest>(key: K, val: ServiceRequest[K]) {
+    setReq(prev => ({ ...prev, [key]: val }));
+  }
+
+  function goBack() {
+    if (step === 1) navigation.goBack();
+    else setStep(s => s - 1);
+  }
+
+  function goNext() { setStep(s => s + 1); }
+
+  // ── Passo 1: Categoria e descrição ──────────────────────
+  async function pickPhoto() {
+    if (req.photos.length >= 5) {
+      Alert.alert('Limite atingido', 'Você pode enviar no máximo 5 fotos.');
       return;
     }
-    setStep(step + 1);
-  };
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Permita o acesso às fotos para continuar.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      set('photos', [...req.photos, result.assets[0].uri]);
+    }
+  }
 
+  function validateStep1() {
+    if (!req.categoryId) { Alert.alert('Selecione uma categoria'); return false; }
+    if (!req.subcategory) { Alert.alert('Selecione o tipo de problema'); return false; }
+    if (req.description.trim().length < 20) {
+      Alert.alert('Descrição muito curta', 'Descreva o problema com pelo menos 20 caracteres.');
+      return false;
+    }
+    return true;
+  }
+
+  // ── Passo 3: Data e horário ──────────────────────────────
+  function validateStep3() {
+    if (!req.isUrgent && !req.time) {
+      Alert.alert('Selecione um horário ou marque como Urgente');
+      return false;
+    }
+    return true;
+  }
+
+  // ── Passo 4: Técnico ─────────────────────────────────────
+  function validateStep4() {
+    if (!req.technicianId && !req.anyTechnician) {
+      Alert.alert('Escolha um técnico ou selecione "Qualquer disponível"');
+      return false;
+    }
+    return true;
+  }
+
+  // ── Passo 5: Confirmação ─────────────────────────────────
+  function handleConfirm() {
+    if (!req.aceitaTermos) {
+      Alert.alert('Aceite os termos para continuar');
+      return;
+    }
+    goNext();
+  }
+
+  // ── Passo 6: Aguardando ──────────────────────────────────
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (step !== 6) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [step]);
+
+  const selectedTech = MOCK_TECHNICIANS.find(t => t.id === req.technicianId);
+  const selectedDate = DATES.find(d => d.value === req.date);
+
+  // ─── Render ──────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header com Progresso */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => step > 1 ? setStep(step - 1) : navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, { width: `${(step / 6) * 100}%` }]} />
-        </View>
-        <Text style={styles.stepCount}>{step}/6</Text>
-      </View>
+    <SafeAreaView style={s.safe}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        
-        {/* PASSO 1: DESCRIÇÃO DO PROBLEMA */}
+        {/* ══════════ PASSO 1 ══════════ */}
         {step === 1 && (
-          <View>
-            <Text style={styles.title}>O que está acontecendo?</Text>
-            <Text style={styles.subtitle}>Descreva o defeito detalhadamente para o técnico se preparar.</Text>
-            
-            <TextInput
-              style={styles.textArea}
-              placeholder="Ex: Meu notebook liga, mas a tela fica preta e faz um bipe..."
-              multiline
-              numberOfLines={6}
-              value={description}
-              onChangeText={setDescription}
-              textAlignVertical="top"
+          <>
+            <StepHeader step={1} total={TOTAL_STEPS} onBack={goBack}
+              title="Qual é o problema?"
+              sub="Selecione a categoria e descreva o que está acontecendo"
             />
-            
-            <Text style={styles.label}>Fotos do problema (Opcional)</Text>
-            <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-              <ImageSelector 
-                label="Adicionar Foto" 
-                onImageSelected={(uri) => setImages([...images, uri])} 
+            <ScrollView contentContainerStyle={s.scroll}>
+
+              {/* Categorias */}
+              <Text style={s.sectionLabel}>Categoria</Text>
+              <View style={s.categoryGrid}>
+                {CATEGORIES.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[s.catCard, req.categoryId === cat.id && s.catCardActive]}
+                    onPress={() => { set('categoryId', cat.id); set('categoryLabel', cat.label); set('subcategory', ''); }}
+                  >
+                    <Ionicons
+                      name={cat.icon}
+                      size={26}
+                      color={req.categoryId === cat.id ? colors.primary : '#888'}
+                    />
+                    <Text style={[s.catLabel, req.categoryId === cat.id && s.catLabelActive]}>
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Subcategoria */}
+              {req.categoryId !== '' && (
+                <>
+                  <Text style={s.sectionLabel}>Tipo de problema</Text>
+                  <View style={s.subGrid}>
+                    {CATEGORIES.find(c => c.id === req.categoryId)?.subcategories.map(sub => (
+                      <TouchableOpacity
+                        key={sub}
+                        style={[s.subChip, req.subcategory === sub && s.subChipActive]}
+                        onPress={() => set('subcategory', sub)}
+                      >
+                        <Text style={[s.subChipText, req.subcategory === sub && s.subChipTextActive]}>
+                          {sub}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              {/* Descrição */}
+              <Text style={s.sectionLabel}>Descreva o problema <Text style={s.required}>*</Text></Text>
+              <TextInput
+                style={s.textArea}
+                placeholder="Ex: Meu notebook não liga desde ontem. Quando pressiono o botão, a luz pisca uma vez e apaga..."
+                placeholderTextColor="#AAA"
+                multiline
+                numberOfLines={5}
+                value={req.description}
+                onChangeText={v => set('description', v)}
+                textAlignVertical="top"
               />
-            </View>
-          </View>
+              <Text style={[s.charCount, req.description.length < 20 && { color: '#F44336' }]}>
+                {req.description.length}/20 caracteres mínimos
+              </Text>
+
+              {/* Fotos */}
+              <Text style={s.sectionLabel}>Fotos do problema <Text style={s.optional}>(opcional, até 5)</Text></Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {req.photos.map((uri, i) => (
+                  <View key={i} style={s.photoThumb}>
+                    <TouchableOpacity
+                      style={s.removePhoto}
+                      onPress={() => set('photos', req.photos.filter((_, idx) => idx !== i))}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#F44336" />
+                    </TouchableOpacity>
+                    <View style={s.photoPlaceholder}>
+                      <Ionicons name="image" size={28} color={colors.primary} />
+                    </View>
+                  </View>
+                ))}
+                {req.photos.length < 5 && (
+                  <TouchableOpacity style={s.addPhotoBtn} onPress={pickPhoto}>
+                    <Ionicons name="camera-outline" size={28} color={colors.primary} />
+                    <Text style={s.addPhotoText}>Adicionar</Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+
+            </ScrollView>
+            <NextButton onPress={() => { if (validateStep1()) goNext(); }} />
+          </>
         )}
 
-        {/* PASSO 2: MODALIDADE E LOCAL */}
+        {/* ══════════ PASSO 2 ══════════ */}
         {step === 2 && (
-          <View>
-            <Text style={styles.title}>Onde será o atendimento?</Text>
-            
-            <View style={styles.modeContainer}>
-              <TouchableOpacity 
-                style={[styles.modeCard, modalidade === 'presencial' && styles.modeSelected]}
-                onPress={() => setModalidade('presencial')}
-              >
-                <Ionicons name="home-outline" size={32} color={modalidade === 'presencial' ? colors.primary : '#666'} />
-                <Text style={[styles.modeText, modalidade === 'presencial' && {color: colors.primary}]}>Presencial</Text>
-              </TouchableOpacity>
+          <>
+            <StepHeader step={2} total={TOTAL_STEPS} onBack={goBack}
+              title="Local e modalidade"
+              sub="Como o técnico vai te atender?"
+            />
+            <ScrollView contentContainerStyle={s.scroll}>
 
-              <TouchableOpacity 
-                style={[styles.modeCard, modalidade === 'remoto' && styles.modeSelected]}
-                onPress={() => setModalidade('remoto')}
-              >
-                <Ionicons name="laptop-outline" size={32} color={modalidade === 'remoto' ? colors.primary : '#666'} />
-                <Text style={[styles.modeText, modalidade === 'remoto' && {color: colors.primary}]}>Remoto</Text>
-              </TouchableOpacity>
-            </View>
-
-            {modalidade === 'presencial' ? (
-              <View style={styles.addressBox}>
-                <Ionicons name="location-outline" size={20} color={colors.primary} />
-                <View style={{flex: 1, marginLeft: 10}}>
-                  <Text style={{fontWeight: 'bold'}}>Endereço Cadastrado</Text>
-                  <Text style={{color: '#666'}}>Av. Paulista, 1000 - São Paulo, SP</Text>
-                </View>
-                <TouchableOpacity><Text style={{color: colors.primary}}>Alterar</Text></TouchableOpacity>
+              <Text style={s.sectionLabel}>Modalidade de atendimento</Text>
+              <View style={s.modalRow}>
+                {(['presencial', 'remoto'] as const).map(m => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[s.modalCard, req.modalidade === m && s.modalCardActive]}
+                    onPress={() => set('modalidade', m)}
+                  >
+                    <Ionicons
+                      name={m === 'presencial' ? 'person-outline' : 'laptop-outline'}
+                      size={28}
+                      color={req.modalidade === m ? colors.primary : '#888'}
+                    />
+                    <Text style={[s.modalLabel, req.modalidade === m && { color: colors.primary }]}>
+                      {m === 'presencial' ? 'Presencial' : 'Remoto'}
+                    </Text>
+                    <Text style={s.modalSub}>
+                      {m === 'presencial' ? 'Técnico vai até você' : 'Via software de acesso'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            ) : (
-              <View style={styles.infoBox}>
-                <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
-                <Text style={styles.infoText}>
-                  O técnico entrará em contato para solicitar o acesso via AnyDesk ou TeamViewer.
+
+              {req.modalidade === 'presencial' && (
+                <>
+                  <Text style={s.sectionLabel}>Endereço de atendimento</Text>
+                  <TouchableOpacity style={s.addressCard}>
+                    <Ionicons name="location" size={20} color={colors.primary} />
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={s.addressText}>{req.endereco}</Text>
+                      <Text style={s.addressSub}>Endereço principal cadastrado</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="#CCC" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={s.addAddressBtn}>
+                    <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+                    <Text style={s.addAddressText}>Usar outro endereço</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {req.modalidade === 'remoto' && (
+                <>
+                  <Text style={s.sectionLabel}>Software de acesso remoto</Text>
+                  <View style={s.remotoGrid}>
+                    {['AnyDesk', 'TeamViewer', 'Outro'].map(sw => (
+                      <TouchableOpacity
+                        key={sw}
+                        style={[s.subChip, req.remotoSoftware === sw && s.subChipActive]}
+                        onPress={() => set('remotoSoftware', sw)}
+                      >
+                        <Text style={[s.subChipText, req.remotoSoftware === sw && s.subChipTextActive]}>
+                          {sw}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <View style={s.infoBox}>
+                    <Ionicons name="shield-checkmark-outline" size={18} color="#4CAF50" />
+                    <Text style={s.infoText}>
+                      Você terá controle total durante a sessão remota e pode encerrar a qualquer momento.
+                    </Text>
+                  </View>
+                </>
+              )}
+
+            </ScrollView>
+            <NextButton onPress={goNext} />
+          </>
+        )}
+
+        {/* ══════════ PASSO 3 ══════════ */}
+        {step === 3 && (
+          <>
+            <StepHeader step={3} total={TOTAL_STEPS} onBack={goBack}
+              title="Data e horário"
+              sub="Quando você quer ser atendido?"
+            />
+            <ScrollView contentContainerStyle={s.scroll}>
+
+              {/* Urgente */}
+              <TouchableOpacity
+                style={[s.urgentCard, req.isUrgent && s.urgentCardActive]}
+                onPress={() => set('isUrgent', !req.isUrgent)}
+              >
+                <View style={[s.urgentIcon, req.isUrgent && s.urgentIconActive]}>
+                  <Ionicons name="flash" size={22} color={req.isUrgent ? '#FFF' : '#FF9800'} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[s.urgentTitle, req.isUrgent && { color: '#FF9800' }]}>
+                    Urgente – Primeiro disponível
+                  </Text>
+                  <Text style={s.urgentSub}>O técnico mais próximo aceita o mais rápido possível</Text>
+                </View>
+                <Ionicons
+                  name={req.isUrgent ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={req.isUrgent ? '#FF9800' : '#CCC'}
+                />
+              </TouchableOpacity>
+
+              {!req.isUrgent && (
+                <>
+                  {/* Calendário */}
+                  <Text style={s.sectionLabel}>Escolha o dia</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+                    {DATES.map(d => (
+                      <TouchableOpacity
+                        key={d.value}
+                        style={[s.dateCard, req.date === d.value && s.dateCardActive]}
+                        onPress={() => set('date', d.value)}
+                      >
+                        <Text style={[s.dateDayName, req.date === d.value && { color: colors.primary }]}>
+                          {d.dayName}
+                        </Text>
+                        <Text style={[s.dateLabel, req.date === d.value && { color: colors.primary, fontWeight: '700' }]}>
+                          {d.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+
+                  {/* Horários */}
+                  <Text style={s.sectionLabel}>Escolha o horário</Text>
+                  <View style={s.timeGrid}>
+                    {TIMES.map(t => (
+                      <TouchableOpacity
+                        key={t}
+                        style={[s.timeChip, req.time === t && s.timeChipActive]}
+                        onPress={() => set('time', t)}
+                      >
+                        <Text style={[s.timeText, req.time === t && s.timeTextActive]}>{t}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
+            </ScrollView>
+            <NextButton onPress={() => { if (validateStep3()) goNext(); }} />
+          </>
+        )}
+
+        {/* ══════════ PASSO 4 ══════════ */}
+        {step === 4 && (
+          <>
+            <StepHeader step={4} total={TOTAL_STEPS} onBack={goBack}
+              title="Escolha o técnico"
+              sub="Disponíveis para o seu serviço e horário"
+            />
+            <ScrollView contentContainerStyle={s.scroll}>
+
+              {/* Qualquer técnico */}
+              <TouchableOpacity
+                style={[s.anyTechCard, req.anyTechnician && s.anyTechCardActive]}
+                onPress={() => {
+                  set('anyTechnician', !req.anyTechnician);
+                  if (!req.anyTechnician) set('technicianId', null);
+                }}
+              >
+                <Ionicons
+                  name={req.anyTechnician ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={req.anyTechnician ? colors.primary : '#CCC'}
+                />
+                <View style={{ marginLeft: 12 }}>
+                  <Text style={[s.anyTechTitle, req.anyTechnician && { color: colors.primary }]}>
+                    Aceitar qualquer técnico disponível
+                  </Text>
+                  <Text style={s.anyTechSub}>Resposta mais rápida, todos são verificados</Text>
+                </View>
+              </TouchableOpacity>
+
+              <Text style={s.sectionLabel}>Ou escolha um específico</Text>
+
+              {MOCK_TECHNICIANS.map(tech => (
+                <TouchableOpacity
+                  key={tech.id}
+                  style={[
+                    s.techCard,
+                    req.technicianId === tech.id && !req.anyTechnician && s.techCardActive,
+                    req.anyTechnician && s.techCardDimmed,
+                  ]}
+                  onPress={() => {
+                    if (req.anyTechnician) return;
+                    set('technicianId', req.technicianId === tech.id ? null : tech.id);
+                  }}
+                >
+                  <View style={s.techAvatar}>
+                    <Text style={s.techInitials}>{tech.name.split(' ').map(n => n[0]).join('')}</Text>
+                    {tech.verified && (
+                      <View style={s.verifiedBadge}>
+                        <Ionicons name="checkmark" size={10} color="#FFF" />
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={s.techName}>{tech.name}</Text>
+                      {tech.verified && (
+                        <Text style={s.verifiedText}>Verificado</Text>
+                      )}
+                    </View>
+                    <Text style={s.techSpec}>{tech.specialty}</Text>
+                    <View style={s.techMeta}>
+                      <Ionicons name="star" size={13} color="#FFC107" />
+                      <Text style={s.techMetaText}>{tech.rating} ({tech.reviews})</Text>
+                      <Ionicons name="location-outline" size={13} color="#999" />
+                      <Text style={s.techMetaText}>{tech.distance}</Text>
+                    </View>
+                  </View>
+
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={s.techPrice}>{tech.price}</Text>
+                    <Text style={s.techPriceSub}>estimativa</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+            </ScrollView>
+            <NextButton onPress={() => { if (validateStep4()) goNext(); }} />
+          </>
+        )}
+
+        {/* ══════════ PASSO 5 ══════════ */}
+        {step === 5 && (
+          <>
+            <StepHeader step={5} total={TOTAL_STEPS} onBack={goBack}
+              title="Revisão e confirmação"
+              sub="Confira os detalhes antes de enviar"
+            />
+            <ScrollView contentContainerStyle={s.scroll}>
+
+              {/* Resumo */}
+              <View style={s.summaryCard}>
+                <Text style={s.summaryTitle}>Resumo da solicitação</Text>
+
+                <View style={s.summaryRow}>
+                  <Ionicons name="construct-outline" size={18} color={colors.primary} />
+                  <View style={{ marginLeft: 12 }}>
+                    <Text style={s.summaryKey}>Serviço</Text>
+                    <Text style={s.summaryVal}>{req.categoryLabel}</Text>
+                    <Text style={s.summaryValSub}>{req.subcategory}</Text>
+                  </View>
+                </View>
+
+                <View style={s.summaryRow}>
+                  <Ionicons
+                    name={req.modalidade === 'presencial' ? 'location-outline' : 'laptop-outline'}
+                    size={18}
+                    color={colors.primary}
+                  />
+                  <View style={{ marginLeft: 12 }}>
+                    <Text style={s.summaryKey}>Local</Text>
+                    <Text style={s.summaryVal}>
+                      {req.modalidade === 'presencial' ? req.endereco : `Remoto via ${req.remotoSoftware || 'software'}`}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={s.summaryRow}>
+                  <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                  <View style={{ marginLeft: 12 }}>
+                    <Text style={s.summaryKey}>Data e horário</Text>
+                    <Text style={s.summaryVal}>
+                      {req.isUrgent
+                        ? 'Urgente – Primeiro disponível'
+                        : `${selectedDate?.dayName}, ${selectedDate?.label} às ${req.time}`}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={s.summaryRow}>
+                  <Ionicons name="person-outline" size={18} color={colors.primary} />
+                  <View style={{ marginLeft: 12 }}>
+                    <Text style={s.summaryKey}>Técnico</Text>
+                    <Text style={s.summaryVal}>
+                      {req.anyTechnician ? 'Qualquer técnico disponível' : selectedTech?.name ?? '–'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={[s.summaryRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
+                  <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+                  <View style={{ marginLeft: 12 }}>
+                    <Text style={s.summaryKey}>Estimativa de preço</Text>
+                    <Text style={s.summaryVal}>
+                      {req.anyTechnician
+                        ? 'A combinar após diagnóstico'
+                        : selectedTech?.price ?? 'A combinar'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Observações adicionais */}
+              <Text style={s.sectionLabel}>Observações adicionais <Text style={s.optional}>(opcional)</Text></Text>
+              <TextInput
+                style={[s.textArea, { height: 80 }]}
+                placeholder="Algum detalhe extra que o técnico deva saber..."
+                placeholderTextColor="#AAA"
+                multiline
+                value={req.notes}
+                onChangeText={v => set('notes', v)}
+                textAlignVertical="top"
+              />
+
+              {/* Termos */}
+              <TouchableOpacity
+                style={s.checkRow}
+                onPress={() => set('aceitaTermos', !req.aceitaTermos)}
+              >
+                <Ionicons
+                  name={req.aceitaTermos ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={req.aceitaTermos ? colors.primary : '#CCC'}
+                />
+                <Text style={s.checkText}>
+                  Concordo com os{' '}
+                  <Text style={{ color: colors.primary, fontWeight: '600' }}>Termos do Serviço</Text>
+                  {' '}e com a estimativa de preço apresentada
+                </Text>
+              </TouchableOpacity>
+
+            </ScrollView>
+            <NextButton label="Confirmar Solicitação" onPress={handleConfirm} />
+          </>
+        )}
+
+        {/* ══════════ PASSO 6 ══════════ */}
+        {step === 6 && (
+          <View style={s.waitingScreen}>
+            <Animated.View style={[s.pulseRing, { transform: [{ scale: pulseAnim }] }]}>
+              <View style={s.pulseCore}>
+                <Ionicons name="time" size={40} color="#FFF" />
+              </View>
+            </Animated.View>
+
+            <Text style={s.waitingTitle}>Solicitação enviada!</Text>
+            <Text style={s.waitingStatus}>Aguardando aceitação do técnico</Text>
+
+            <View style={s.waitingInfoCard}>
+              <View style={s.waitingInfoRow}>
+                <Ionicons name="hourglass-outline" size={18} color={colors.primary} />
+                <Text style={s.waitingInfoText}>Prazo máximo de resposta: <Text style={{ fontWeight: '700' }}>30 minutos</Text></Text>
+              </View>
+              <View style={s.waitingInfoRow}>
+                <Ionicons name="notifications-outline" size={18} color={colors.primary} />
+                <Text style={s.waitingInfoText}>Você receberá uma notificação quando o técnico aceitar</Text>
+              </View>
+              <View style={s.waitingInfoRow}>
+                <Ionicons
+                  name={req.modalidade === 'presencial' ? 'location-outline' : 'laptop-outline'}
+                  size={18}
+                  color={colors.primary}
+                />
+                <Text style={s.waitingInfoText}>
+                  {req.modalidade === 'presencial'
+                    ? `Atendimento presencial em: ${req.endereco}`
+                    : `Atendimento remoto via ${req.remotoSoftware || 'software'}`}
                 </Text>
               </View>
-            )}
+            </View>
+
+            <TouchableOpacity
+              style={s.cancelBtn}
+              onPress={() =>
+                Alert.alert(
+                  'Cancelar solicitação?',
+                  'Deseja cancelar esta solicitação?',
+                  [
+                    { text: 'Não', style: 'cancel' },
+                    { text: 'Sim, cancelar', style: 'destructive', onPress: () => navigation.popToTop() },
+                  ]
+                )
+              }
+            >
+              <Text style={s.cancelText}>Cancelar solicitação</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={s.homeBtn} onPress={() => navigation.navigate('Início')}>
+              <Text style={s.homeBtnText}>Voltar para o início</Text>
+              <Ionicons name="home-outline" size={18} color={colors.primary} />
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* PASSO 3: DATA E HORÁRIO */}
-        {step === 3 && (
-        <View>
-            <Text style={styles.title}>Quando prefere?</Text>
-            
-            <Calendar
-            onDayPress={day => setSelectedDate(day.dateString)}
-            markedDates={{
-                [selectedDate]: { selected: true, selectedColor: colors.primary }
-            }}
-            theme={{
-                todayTextColor: colors.primary,
-                arrowColor: colors.primary,
-            }}
-            style={styles.calendar}
-            />
-
-            <Text style={[styles.label, { marginTop: 20 }]}>Horários Disponíveis</Text>
-            <View style={styles.hoursGrid}>
-            {hours.map(hour => (
-                <TouchableOpacity 
-                key={hour} 
-                style={[styles.hourChip, selectedHour === hour && styles.hourSelected]}
-                onPress={() => setSelectedHour(hour)}
-                >
-                <Text style={{ color: selectedHour === hour ? '#FFF' : '#666' }}>{hour}</Text>
-                </TouchableOpacity>
-            ))}
-            </View>
-            
-            <TouchableOpacity style={styles.urgenteBtn}>
-            <Ionicons name="flash" size={20} color="#FF9500" />
-            <Text style={styles.urgenteText}>Preciso de urgência (Primeiro disponível)</Text>
-            </TouchableOpacity>
-        </View>
-        )}
-
-        {/* PASSO 4: ESCOLHER TÉCNICO */}
-        {step === 4 && (
-        <View>
-            <Text style={styles.title}>Escolha o Profissional</Text>
-            <Text style={styles.subtitle}>Estes técnicos atendem no horário selecionado.</Text>
-
-            <TouchableOpacity style={styles.anyTechCard} onPress={nextStep}>
-            <View style={styles.anyTechIcon}>
-                <Ionicons name="people" size={24} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={{ fontWeight: 'bold' }}>Qualquer técnico disponível</Text>
-                <Text style={{ fontSize: 12, color: '#666' }}>Agiliza a aceitação do seu pedido</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#CCC" />
-            </TouchableOpacity>
-
-            {/* Lista de Técnicos Específicos */}
-            {[1, 2].map(i => (
-            <TouchableOpacity key={i} style={styles.techSelectionCard} onPress={nextStep}>
-                <View style={styles.avatarMini} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={{ fontWeight: 'bold' }}>Ricardo Silva</Text>
-                <Text style={{ fontSize: 12, color: colors.primary }}>Est. R$ 120,00 - 150,00</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="star" size={12} color="#FFD700" />
-                    <Text style={{ fontSize: 12, color: '#666' }}> 4.9 (128)</Text>
-                </View>
-                </View>
-                <Ionicons name="radio-button-off" size={24} color="#CCC" />
-            </TouchableOpacity>
-            ))}
-        </View>
-        )}
-
-        {/* PASSO 5: REVISÃO E CONFIRMAÇÃO */}
-        {step === 5 && (
-        <View>
-            <Text style={styles.title}>Revise seu Pedido</Text>
-            <Text style={styles.subtitle}>Confira os detalhes antes de enviar para os técnicos.</Text>
-
-            <View style={styles.reviewCard}>
-            <View style={styles.reviewRow}>
-                <Ionicons name="construct-outline" size={20} color={colors.primary} />
-                <Text style={styles.reviewText}>Problema: <Text style={{fontWeight: 'bold'}}>{description.substring(0, 30)}...</Text></Text>
-            </View>
-            
-            <View style={styles.reviewRow}>
-                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
-                <Text style={styles.reviewText}>Data: <Text style={{fontWeight: 'bold'}}>{selectedDate} às {selectedHour}</Text></Text>
-            </View>
-
-            <View style={styles.reviewRow}>
-                <Ionicons name="location-outline" size={20} color={colors.primary} />
-                <Text style={styles.reviewText}>Modalidade: <Text style={{fontWeight: 'bold'}}>{modalidade === 'presencial' ? 'Presencial' : 'Remoto'}</Text></Text>
-            </View>
-            </View>
-
-            <View style={styles.priceEstimate}>
-            <Text style={styles.priceLabel}>Estimativa de Preço</Text>
-            <Text style={styles.priceValue}>R$ 120,00 - R$ 180,00*</Text>
-            <Text style={styles.priceNote}>*O valor final será definido após o orçamento do técnico.</Text>
-            </View>
-
-            <View style={styles.termsRow}>
-            <Ionicons name="shield-checkmark-outline" size={20} color="#4CAF50" />
-            <Text style={styles.termsText}>Sua segurança é nossa prioridade. O pagamento só é liberado após sua aprovação final.</Text>
-            </View>
-
-            <Button 
-            title="Confirmar Solicitação" 
-            onPress={() => setStep(6)} 
-            />
-        </View>
-        )}
-
-        {/* PASSO 6: AGUARDANDO RESPOSTA (TELA DE SUCESSO) */}
-        {step === 6 && (
-        <View style={styles.successContainer}>
-            <View style={styles.loadingCircle}>
-            {/* Aqui você pode usar uma LottieView para uma animação profissional */}
-            <Ionicons name="paper-plane" size={50} color={colors.primary} />
-            </View>
-            
-            <Text style={styles.successTitle}>Buscando o melhor técnico...</Text>
-            <Text style={styles.successSub}>
-            Sua solicitação foi enviada! Você receberá uma notificação assim que um técnico aceitar ou enviar um orçamento.
-            </Text>
-
-            <View style={styles.timerBox}>
-            <Text style={styles.timerLabel}>Tempo médio de resposta</Text>
-            <Text style={styles.timerValue}>15 - 30 min</Text>
-            </View>
-
-            <TouchableOpacity 
-            style={styles.btnSecondary}
-            onPress={() => navigation.replace('MainTabs')}
-            >
-            <Text style={styles.btnSecondaryText}>Ir para Meus Pedidos</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={{ marginTop: 20 }}>
-            <Text style={{ color: colors.danger }}>Cancelar Solicitação</Text>
-            </TouchableOpacity>
-        </View>
-        )}
-
-        {/* O botão "Próximo" é fixo para todos os steps */}
-        <View style={{ marginTop: 30 }}>
-          <Button title="Próximo" onPress={nextStep} />
-        </View>
-
-      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 20, gap: 15 },
-  progressContainer: { flex: 1, height: 8, backgroundColor: '#EEE', borderRadius: 4, overflow: 'hidden' },
-  progressBar: { height: '100%', backgroundColor: colors.primary },
-  stepCount: { fontWeight: 'bold', color: '#666' },
-  scroll: { padding: 20 },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
-  subtitle: { color: '#666', marginBottom: 20, lineHeight: 20 },
-  textArea: { backgroundColor: '#F8F9FF', borderRadius: 15, padding: 15, height: 150, borderWidth: 1, borderColor: '#E8EEFF', marginBottom: 20 },
-  label: { fontSize: 16, fontWeight: 'bold', marginBottom: 15 },
-  modeContainer: { flexDirection: 'row', gap: 15, marginBottom: 30 },
-  modeCard: { flex: 1, height: 120, backgroundColor: '#F8F9FF', borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  modeSelected: { borderColor: colors.primary, backgroundColor: colors.primary + '05' },
-  modeText: { marginTop: 10, fontWeight: 'bold', color: '#666' },
-  addressBox: { flexDirection: 'row', alignItems: 'center', padding: 15, backgroundColor: '#F8F9FF', borderRadius: 15 },
-  infoBox: { flexDirection: 'row', alignItems: 'center', padding: 15, backgroundColor: colors.primary + '10', borderRadius: 15, gap: 10 },
-  infoText: { flex: 1, color: colors.primary, fontSize: 14 },
-  calendar: { borderRadius: 15, padding: 10, elevation: 2, backgroundColor: '#FFF' },
-  hoursGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
-  hourChip: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, backgroundColor: '#F0F2F5', minWidth: '30%', alignItems: 'center' },
-  hourSelected: { backgroundColor: colors.primary },
-  urgenteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 25, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#FF9500', borderStyle: 'dashed' },
-  urgenteText: { marginLeft: 10, color: '#FF9500', fontWeight: 'bold' },
-  anyTechCard: { flexDirection: 'row', alignItems: 'center', padding: 15, backgroundColor: colors.primary + '10', borderRadius: 15, marginBottom: 15 },
-  anyTechIcon: { width: 45, height: 45, borderRadius: 22, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' },
-  techSelectionCard: { flexDirection: 'row', alignItems: 'center', padding: 15, backgroundColor: '#F8F9FF', borderRadius: 15, marginBottom: 10, borderWidth: 1, borderColor: '#E8EEFF' },
-  avatarMini: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#DDD' },
-  reviewCard: { backgroundColor: '#F8F9FF', borderRadius: 20, padding: 20, marginBottom: 20 },
-  reviewRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 15 },
-  reviewText: { fontSize: 15, color: '#444' },
-  priceEstimate: { alignItems: 'center', marginBottom: 25, padding: 15, borderTopWidth: 1, borderColor: '#EEE' },
-  priceLabel: { fontSize: 14, color: '#666' },
-  priceValue: { fontSize: 24, fontWeight: 'bold', color: colors.primary, marginVertical: 5 },
-  priceNote: { fontSize: 11, color: '#999', textAlign: 'center' },
-  termsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 10, marginBottom: 30 },
-  termsText: { flex: 1, fontSize: 12, color: '#666', lineHeight: 18 },
-  // Step 6 Success
-  successContainer: { alignItems: 'center', justifyContent: 'center', flex: 1, paddingVertical: 50 },
-  loadingCircle: { width: 120, height: 120, borderRadius: 60, backgroundColor: colors.primary + '15', justifyContent: 'center', alignItems: 'center', marginBottom: 30 },
-  successTitle: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 15 },
-  successSub: { textAlign: 'center', color: '#666', lineHeight: 22, marginBottom: 40 },
-  timerBox: { backgroundColor: '#F0F2F5', padding: 20, borderRadius: 15, width: '100%', alignItems: 'center', marginBottom: 30 },
-  timerLabel: { fontSize: 12, color: '#666' },
-  timerValue: { fontSize: 20, fontWeight: 'bold', color: colors.dark1 },
-  btnSecondary: { width: '100%', padding: 18, borderRadius: 15, borderWidth: 1, borderColor: colors.primary, alignItems: 'center' },
-  btnSecondaryText: { color: colors.primary, fontWeight: 'bold' }
+// ─── Estilos ───────────────────────────────────────────────
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#F8F9FF' },
+  scroll: { padding: 20, paddingBottom: 40 },
+
+  sectionLabel: { fontSize: 13, fontWeight: '700', color: '#444', marginBottom: 10, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  required: { color: '#F44336' },
+  optional: { color: '#AAA', fontWeight: '400', textTransform: 'none', letterSpacing: 0 },
+
+  // Categorias
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  catCard: {
+    width: '47%', backgroundColor: '#FFF', borderRadius: 14, padding: 14,
+    alignItems: 'center', borderWidth: 2, borderColor: '#EEE',
+    elevation: 1, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4,
+  },
+  catCardActive: { borderColor: colors.primary, backgroundColor: colors.primary + '06' },
+  catLabel: { fontSize: 12, color: '#666', textAlign: 'center', marginTop: 8, fontWeight: '500' },
+  catLabelActive: { color: colors.primary, fontWeight: '700' },
+
+  // Subcategorias
+  subGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
+  subChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: '#DDD', backgroundColor: '#FFF' },
+  subChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  subChipText: { fontSize: 13, color: '#555', fontWeight: '500' },
+  subChipTextActive: { color: '#FFF', fontWeight: '600' },
+
+  // Descrição
+  textArea: {
+    backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E4F0',
+    borderRadius: 12, padding: 16, fontSize: 15, color: '#111',
+    minHeight: 120, marginBottom: 6,
+  },
+  charCount: { fontSize: 12, color: '#999', textAlign: 'right', marginBottom: 20 },
+
+  // Fotos
+  photoThumb: { width: 90, height: 90, marginRight: 10, position: 'relative' },
+  photoPlaceholder: {
+    width: 90, height: 90, borderRadius: 12, backgroundColor: colors.primary + '10',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  removePhoto: { position: 'absolute', top: -6, right: -6, zIndex: 1 },
+  addPhotoBtn: {
+    width: 90, height: 90, borderRadius: 12, borderStyle: 'dashed',
+    borderWidth: 2, borderColor: colors.primary + '60',
+    backgroundColor: colors.primary + '05',
+    justifyContent: 'center', alignItems: 'center', marginRight: 10,
+  },
+  addPhotoText: { fontSize: 11, color: colors.primary, marginTop: 4, fontWeight: '600' },
+
+  // Modalidade
+  modalRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  modalCard: {
+    flex: 1, backgroundColor: '#FFF', borderRadius: 16, padding: 18,
+    alignItems: 'center', borderWidth: 2, borderColor: '#EEE', gap: 6,
+  },
+  modalCardActive: { borderColor: colors.primary, backgroundColor: colors.primary + '06' },
+  modalLabel: { fontSize: 15, fontWeight: '700', color: '#333' },
+  modalSub: { fontSize: 12, color: '#999', textAlign: 'center' },
+
+  // Endereço
+  addressCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF',
+    borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#E0E4F0', marginBottom: 10,
+  },
+  addressText: { fontSize: 14, fontWeight: '600', color: '#333' },
+  addressSub: { fontSize: 12, color: '#999', marginTop: 2 },
+  addAddressBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 4 },
+  addAddressText: { color: colors.primary, fontWeight: '600', fontSize: 14 },
+
+  // Remoto
+  remotoGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  infoBox: {
+    flexDirection: 'row', gap: 10, backgroundColor: '#F0FFF5',
+    borderRadius: 12, padding: 14, marginTop: 8,
+  },
+  infoText: { flex: 1, fontSize: 13, color: '#2E7D32', lineHeight: 18 },
+
+  // Urgente
+  urgentCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF',
+    borderRadius: 16, padding: 16, marginBottom: 24,
+    borderWidth: 2, borderColor: '#EEE',
+  },
+  urgentCardActive: { borderColor: '#FF9800', backgroundColor: '#FFF8F0' },
+  urgentIcon: {
+    width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFF3E0',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  urgentIconActive: { backgroundColor: '#FF9800' },
+  urgentTitle: { fontSize: 15, fontWeight: '700', color: '#333' },
+  urgentSub: { fontSize: 12, color: '#999', marginTop: 2 },
+
+  // Datas
+  dateCard: {
+    alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16,
+    backgroundColor: '#FFF', borderRadius: 14, marginRight: 10,
+    borderWidth: 2, borderColor: '#EEE', minWidth: 70,
+  },
+  dateCardActive: { borderColor: colors.primary, backgroundColor: colors.primary + '08' },
+  dateDayName: { fontSize: 11, fontWeight: '600', color: '#999', textTransform: 'uppercase' },
+  dateLabel: { fontSize: 14, color: '#333', marginTop: 4, fontWeight: '500' },
+
+  // Horários
+  timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  timeChip: {
+    paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10,
+    backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E4F0',
+  },
+  timeChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  timeText: { fontSize: 14, color: '#555', fontWeight: '500' },
+  timeTextActive: { color: '#FFF', fontWeight: '700' },
+
+  // Técnicos
+  anyTechCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF',
+    borderRadius: 14, padding: 16, marginBottom: 16,
+    borderWidth: 2, borderColor: '#EEE',
+  },
+  anyTechCardActive: { borderColor: colors.primary, backgroundColor: colors.primary + '06' },
+  anyTechTitle: { fontSize: 15, fontWeight: '700', color: '#333' },
+  anyTechSub: { fontSize: 12, color: '#999', marginTop: 2 },
+
+  techCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF',
+    borderRadius: 16, padding: 16, marginBottom: 12,
+    borderWidth: 2, borderColor: '#EEE',
+    elevation: 1, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6,
+  },
+  techCardActive: { borderColor: colors.primary, backgroundColor: colors.primary + '05' },
+  techCardDimmed: { opacity: 0.4 },
+  techAvatar: {
+    width: 50, height: 50, borderRadius: 14, backgroundColor: colors.primary + '15',
+    justifyContent: 'center', alignItems: 'center', position: 'relative',
+  },
+  techInitials: { fontSize: 16, fontWeight: '700', color: colors.primary },
+  verifiedBadge: {
+    position: 'absolute', bottom: -2, right: -2,
+    width: 16, height: 16, borderRadius: 8,
+    backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#FFF',
+  },
+  techName: { fontSize: 15, fontWeight: '700', color: '#222' },
+  verifiedText: { fontSize: 10, color: colors.primary, fontWeight: '700', backgroundColor: colors.primary + '15', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  techSpec: { fontSize: 12, color: '#666', marginTop: 2 },
+  techMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  techMetaText: { fontSize: 12, color: '#666', marginRight: 6 },
+  techPrice: { fontSize: 14, fontWeight: '700', color: colors.dark1 },
+  techPriceSub: { fontSize: 10, color: '#AAA', marginTop: 2 },
+
+  // Revisão
+  summaryCard: {
+    backgroundColor: '#FFF', borderRadius: 16, padding: 20,
+    marginBottom: 20, borderWidth: 1, borderColor: '#E8EEFF',
+  },
+  summaryTitle: { fontSize: 15, fontWeight: '700', color: '#333', marginBottom: 16 },
+  summaryRow: {
+    flexDirection: 'row', paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: '#F0F0F0', marginBottom: 4,
+  },
+  summaryKey: { fontSize: 11, color: '#AAA', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  summaryVal: { fontSize: 14, color: '#222', fontWeight: '600', marginTop: 2 },
+  summaryValSub: { fontSize: 12, color: '#888', marginTop: 1 },
+
+  checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 16 },
+  checkText: { flex: 1, fontSize: 14, color: '#444', lineHeight: 20 },
+
+  // Aguardando
+  waitingScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
+  pulseRing: {
+    width: 110, height: 110, borderRadius: 55,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center', alignItems: 'center', marginBottom: 28,
+  },
+  pulseCore: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: colors.primary,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  waitingTitle: { fontSize: 24, fontWeight: '700', color: colors.dark1, marginBottom: 6 },
+  waitingStatus: { fontSize: 15, color: '#666', marginBottom: 28 },
+  waitingInfoCard: {
+    backgroundColor: '#FFF', borderRadius: 16, padding: 20,
+    width: '100%', gap: 14, marginBottom: 24,
+    borderWidth: 1, borderColor: '#E8EEFF',
+  },
+  waitingInfoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  waitingInfoText: { flex: 1, fontSize: 14, color: '#444', lineHeight: 20 },
+  cancelBtn: { paddingVertical: 12 },
+  cancelText: { color: '#F44336', fontWeight: '600', fontSize: 14 },
+  homeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 8, padding: 12,
+  },
+  homeBtnText: { color: colors.primary, fontWeight: '700', fontSize: 15 },
 });

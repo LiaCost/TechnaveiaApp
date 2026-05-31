@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: 'bold', paddingHorizontal: 20, marginBottom: 15, color: colors.dark1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10 },
   catItem: { width: '25%', alignItems: 'center', marginBottom: 20 },
-  catIcon: { width: 60, height: 60, backgroundColor: '#FFF', borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 2, shadowOpacity: 0.1 },
+  catIcon: { width: 60, height: 60, backgroundColor: '#FFF', borderRadius: 15, justifyContent: 'center', alignItems: 'center', shadowOpacity: 0.1 },
   catLabel: { fontSize: 12, marginTop: 8, textAlign: 'center', fontWeight: '500' },
   quickRequest: { marginHorizontal: 20, backgroundColor: colors.dark1, padding: 20, borderRadius: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
   quickTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
