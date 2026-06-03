@@ -1,11 +1,13 @@
 import React from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, Image, 
-  TouchableOpacity, SafeAreaView, FlatList 
+  TouchableOpacity, SafeAreaView, FlatList, 
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { Button } from '../../components/Button';
+import { s } from './ClientProfileScreen';
 
 export function TechProfileScreen({ navigation }: any) {
   // Mock de dados para o Portfólio
@@ -14,6 +16,17 @@ export function TechProfileScreen({ navigation }: any) {
     { id: '2', image: 'https://via.placeholder.com/150' },
     { id: '3', image: 'https://via.placeholder.com/150' },
   ];
+
+  function handleLogout() {
+      Alert.alert(
+        'Sair da conta',
+        'Tem certeza que deseja sair?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Sair', style: 'destructive', onPress: () => navigation.navigate('Login') },
+        ]
+      );
+    }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -94,6 +107,11 @@ export function TechProfileScreen({ navigation }: any) {
           </View>
         </View>
 
+            <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={20} color="#FF4B4B" />
+        <Text style={s.logoutText}>Sair da Conta</Text>
+      </TouchableOpacity>
+            
       </ScrollView>
 
       {/* Botão de Ação Fixo */}
@@ -140,5 +158,12 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', bottom: 0, width: '100%', backgroundColor: '#FFF', padding: 20, flexDirection: 'row', gap: 15, borderTopWidth: 1, borderTopColor: '#EEE' },
   chatBtn: { width: 56, height: 56, borderRadius: 15, borderWidth: 1, borderColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
   requestBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
-  requestBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
+  requestBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, margin: 20, marginTop: 0, padding: 18,
+    backgroundColor: '#FFF', borderRadius: 15,
+    borderWidth: 1, borderColor: '#FFE0E0',
+  },
+  logoutText: { color: '#FF4B4B', fontWeight: 'bold', fontSize: 15 },
 });

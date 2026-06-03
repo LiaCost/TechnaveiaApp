@@ -4,18 +4,29 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { useAuth } from '../../contexts/AuthContext';
 
-export function ClientProfileScreen({ navigation }: any) {
+export function TechAccountScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
 
   const menuItems = [
-    { icon: 'location-outline', label: 'Meus Endereços', sub: 'Casa, Trabalho' },
-    { icon: 'card-outline', label: 'Pagamentos', sub: 'Cartão final 4432' },
-    { icon: 'receipt-outline', label: 'Histórico de Pedidos', sub: 'Ver serviços anteriores' },
-    { icon: 'star-outline', label: 'Minhas Avaliações', sub: 'Feedbacks enviados' },
-    { icon: 'gift-outline', label: 'Indique e Ganhe', sub: 'Ganhe descontos indicando amigos', highlight: true },
-    { icon: 'settings-outline', label: 'Configurações', sub: 'Segurança, tema, privacidade' },
-    { icon: 'help-circle-outline', label: 'Suporte', sub: 'Ajuda e FAQ' },
+    { icon: 'person-outline',          label: 'Editar Perfil Público',    sub: 'Bio, portfólio e certificados' },
+    { icon: 'construct-outline',       label: 'Meus Serviços',            sub: 'Gerenciar serviços cadastrados' },
+    { icon: 'star-outline',            label: 'Minhas Avaliações',        sub: 'Ver feedbacks dos clientes' },
+    { icon: 'wallet-outline',          label: 'Financeiro',               sub: 'Saldo, extrato e saques' },
+    { icon: 'calendar-outline',        label: 'Agenda',                   sub: 'Gerenciar disponibilidade' },
+    { icon: 'shield-checkmark-outline',label: 'Documentos',               sub: 'Status de verificação', highlight: true },
+    { icon: 'settings-outline',        label: 'Configurações',            sub: 'Segurança, tema, privacidade' },
+    { icon: 'help-circle-outline',     label: 'Suporte',                  sub: 'Ajuda e FAQ' },
   ];
+
+  const navMap: Record<string, string> = {
+    'Editar Perfil Público':  'EditPublicProfile',
+    'Meus Serviços':          'AddService',
+    'Minhas Avaliações':      'Reviews',
+    'Financeiro':             'Ganhos',
+    'Agenda':                 'Agenda',
+    'Configurações':          'Settings',
+    'Suporte':                'HelpCenter',
+  };
 
   function handleLogout() {
     Alert.alert(
@@ -30,32 +41,58 @@ export function ClientProfileScreen({ navigation }: any) {
 
   return (
     <ScrollView style={s.container}>
+      {/* Header */}
       <View style={s.header}>
         <View style={s.avatarContainer}>
           <View style={s.avatarLarge}>
             <Text style={s.avatarInitials}>
-              {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? 'U'}
+              {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? 'T'}
             </Text>
           </View>
           <TouchableOpacity style={s.editBadge}>
             <Ionicons name="camera" size={16} color="#FFF" />
           </TouchableOpacity>
         </View>
-        <Text style={s.userName}>{user?.nome ?? 'Usuário'}</Text>
+
+        <Text style={s.userName}>{user?.nome ?? 'Técnico'}</Text>
         <Text style={s.userEmail}>{user?.email ?? ''}</Text>
-        <TouchableOpacity style={s.editProfileBtn}>
-          <Text style={s.editProfileText}>Editar Dados Pessoais</Text>
+
+        {/* Badge verificado */}
+        <View style={s.verifiedRow}>
+          <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
+          <Text style={s.verifiedText}>Técnico Verificado</Text>
+        </View>
+
+        <TouchableOpacity
+          style={s.editProfileBtn}
+          onPress={() => navigation.navigate('EditPublicProfile')}
+        >
+          <Text style={s.editProfileText}>Editar Perfil Público</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Menu */}
       <View style={s.menuSection}>
         {menuItems.map((item, index) => (
-          <TouchableOpacity key={index} style={s.menuItem}>
+          <TouchableOpacity
+            key={index}
+            style={s.menuItem}
+            onPress={() => {
+              const route = navMap[item.label];
+              if (route) navigation.navigate(route);
+            }}
+          >
             <View style={[s.menuIcon, item.highlight && { backgroundColor: colors.primary + '15' }]}>
-              <Ionicons name={item.icon as any} size={22} color={item.highlight ? colors.primary : '#444'} />
+              <Ionicons
+                name={item.icon as any}
+                size={22}
+                color={item.highlight ? colors.primary : '#444'}
+              />
             </View>
             <View style={{ flex: 1, marginLeft: 15 }}>
-              <Text style={[s.menuLabel, item.highlight && { color: colors.primary }]}>{item.label}</Text>
+              <Text style={[s.menuLabel, item.highlight && { color: colors.primary }]}>
+                {item.label}
+              </Text>
               <Text style={s.menuSub}>{item.sub}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#CCC" />
@@ -63,6 +100,7 @@ export function ClientProfileScreen({ navigation }: any) {
         ))}
       </View>
 
+      {/* Logout */}
       <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={20} color="#FF4B4B" />
         <Text style={s.logoutText}>Sair da Conta</Text>
@@ -71,7 +109,7 @@ export function ClientProfileScreen({ navigation }: any) {
   );
 }
 
-export const s = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FF' },
   header: {
     alignItems: 'center', padding: 30, backgroundColor: '#FFF',
@@ -92,6 +130,11 @@ export const s = StyleSheet.create({
   },
   userName: { fontSize: 20, fontWeight: 'bold', marginTop: 15, color: '#333' },
   userEmail: { fontSize: 14, color: '#999', marginTop: 4 },
+  verifiedRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginTop: 8,
+  },
+  verifiedText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
   editProfileBtn: {
     marginTop: 15, paddingHorizontal: 20, paddingVertical: 8,
     borderRadius: 20, borderWidth: 1, borderColor: colors.primary,

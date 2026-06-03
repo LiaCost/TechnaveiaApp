@@ -8,7 +8,7 @@ import { TechHomeScreen } from '../screens/tech/TechHomeScreen';
 import { ServiceExecutionScreen } from '../screens/tech/ServiceExecutionScreen'; // Agenda/Execução
 import { ChatListScreen } from '../screens/chat/ChatListScreen';
 import { FinanceScreen } from '../screens/tech/FinanceScreen';
-import { TechProfileScreen } from '../screens/profile/TechProfileScreen';
+import { TechAccountScreen } from '../screens/profile/TechAccountScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -68,7 +68,7 @@ export function TechTabs() {
       />
       <Tab.Screen 
         name="Conta" 
-        component={TechProfileScreen} 
+        component={TechAccountScreen} 
         options={{ tabBarLabel: 'Conta' }}
       />
     </Tab.Navigator>
