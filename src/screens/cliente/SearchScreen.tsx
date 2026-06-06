@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { 
-  View, Text, StyleSheet, SafeAreaView, TextInput, 
-  TouchableOpacity, FlatList, Modal, ScrollView 
+  View, Text, StyleSheet, TextInput, 
+  TouchableOpacity, FlatList, Modal, ScrollView,
+  StatusBar // <-- 1. Importado o StatusBar nativo
 } from 'react-native';
+// 2. Trocamos o SafeAreaView do react-native pelo correto
+import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import Slider from '@react-native-community/slider';
@@ -19,7 +22,11 @@ export function SearchScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    // 3. Adicionado o controle de 'edges' para o topo e laterais
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* 4. Força os ícones do sistema (hora, bateria) a ficarem visíveis no fundo claro */}
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+
       {/* Header de Busca */}
       <View style={styles.header}>
         <View style={styles.searchBar}>
@@ -43,7 +50,8 @@ export function SearchScreen() {
       <FlatList 
         data={technicians}
         keyExtractor={item => item.id}
-        contentContainerStyle={{ padding: 20 }}
+        // Adicionado um paddingBottom na lista para garantir que o último card não cole embaixo
+        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.techCard}>
             <View style={styles.techImage} />
@@ -79,7 +87,7 @@ export function SearchScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.filterLabel}>Distância Máxima: {distance}km</Text>
               <Slider
                 style={{ width: '100%', height: 40 }}
@@ -119,7 +127,8 @@ export function SearchScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FF' },
-  header: { flexDirection: 'row', padding: 20, gap: 10, alignItems: 'center' },
+  // Ajustado o padding do header para combinar perfeitamente com o safe area do topo
+  header: { flexDirection: 'row', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20, gap: 10, alignItems: 'center' },
   searchBar: { flex: 1, height: 50, backgroundColor: '#FFF', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, elevation: 2 },
   input: { flex: 1, marginLeft: 10, fontSize: 16 },
   filterBtn: { width: 50, height: 50, backgroundColor: colors.primary, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },

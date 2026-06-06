@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  SafeAreaView, ActivityIndicator, RefreshControl, Alert,
+  SafeAreaView, ActivityIndicator, RefreshControl, Alert, StatusBar, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
@@ -196,7 +196,9 @@ const s = StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 8 : 20,
+    paddingBottom: 12,
     backgroundColor: '#FFF',
   },
   headerTitle: { fontSize: 22, fontWeight: '700', color: colors.dark1, flex: 1 },

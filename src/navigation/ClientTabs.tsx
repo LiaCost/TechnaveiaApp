@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
 
 import { HomeScreen } from '../screens/cliente/HomeScreen';
@@ -8,17 +9,30 @@ import { SearchScreen } from '../screens/cliente/SearchScreen';
 import { OrdersScreen } from '../screens/cliente/OrdersScreen';
 import { ChatListScreen } from '../screens/chat/ChatListScreen';
 import { ClientProfileScreen } from '../screens/profile/ClientProfileScreen';
+import { ChatScreen } from '../screens/chat/ChatScreen';
 
 const Tab = createBottomTabNavigator();
 
 export function ClientTabs() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: '#999',
-        tabBarStyle: { height: 70, paddingBottom: 10, paddingTop: 10 },
+        tabBarStyle: {
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom || 10,
+          paddingTop: 8,
+          backgroundColor: '#FFF',
+          borderTopWidth: 1,
+          borderTopColor: '#EEE',
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+        },
         tabBarIcon: ({ focused, color }) => {
           let iconName: any;
           if (route.name === 'Início') iconName = focused ? 'home' : 'home-outline';

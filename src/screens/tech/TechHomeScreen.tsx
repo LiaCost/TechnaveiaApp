@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   ScrollView, View, Text, StyleSheet, Switch,
-  TouchableOpacity, SafeAreaView, ActivityIndicator,
+  TouchableOpacity, StatusBar, Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { TechStats } from '../../components/TechStats';
@@ -33,6 +34,7 @@ export function TechHomeScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* Header do Técnico */}
@@ -74,10 +76,10 @@ export function TechHomeScreen({ navigation }: any) {
 
         {/* Dashboard de Ganhos */}
         <TechStats
-          pedidosHoje={summary ? 5 : 0}     // TODO: trocar por campo real da API
+          pedidosHoje={summary ? 5 : 0}
           ganhosSemana={ganhosSemana}
-          avaliacao={4.9}                    // TODO: trocar por campo real da API
-          taxaAceitacao={98}                 // TODO: trocar por campo real da API
+          avaliacao={4.9}
+          taxaAceitacao={98}
           isLoading={isLoadingStats}
         />
 
@@ -137,7 +139,10 @@ export function TechHomeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F8F9FF' },
   header: {
-    padding: 20, backgroundColor: '#FFF',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 20,
+    backgroundColor: '#FFF',
     borderBottomLeftRadius: 30, borderBottomRightRadius: 30,
   },
   profileRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },

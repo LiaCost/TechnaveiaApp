@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, ScrollView,
   TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../../theme';
@@ -217,6 +219,7 @@ export function ServiceSummaryScreen({ navigation }: any) {
   // ── Formulário ──
   return (
     <SafeAreaView style={s.safe}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F8F9FF" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
         {/* Header */}
@@ -435,7 +438,7 @@ const s = StyleSheet.create({
   valueNote: { fontSize: 12, color: '#888', marginTop: 8, lineHeight: 18 },
 
   footer: {
-    padding: 20, backgroundColor: '#FFF',
+    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, backgroundColor: '#FFF',
     borderTopWidth: 1, borderTopColor: '#EEE',
   },
   confirmBtn: {

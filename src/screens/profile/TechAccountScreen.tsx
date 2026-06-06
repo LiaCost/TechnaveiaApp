@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -40,79 +41,86 @@ export function TechAccountScreen({ navigation }: any) {
   }
 
   return (
-    <ScrollView style={s.container}>
-      {/* Header */}
-      <View style={s.header}>
-        <View style={s.avatarContainer}>
-          <View style={s.avatarLarge}>
-            <Text style={s.avatarInitials}>
-              {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? 'T'}
-            </Text>
-          </View>
-          <TouchableOpacity style={s.editBadge}>
-            <Ionicons name="camera" size={16} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={s.userName}>{user?.nome ?? 'Técnico'}</Text>
-        <Text style={s.userEmail}>{user?.email ?? ''}</Text>
-
-        {/* Badge verificado */}
-        <View style={s.verifiedRow}>
-          <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
-          <Text style={s.verifiedText}>Técnico Verificado</Text>
-        </View>
-
-        <TouchableOpacity
-          style={s.editProfileBtn}
-          onPress={() => navigation.navigate('EditPublicProfile')}
-        >
-          <Text style={s.editProfileText}>Editar Perfil Público</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Menu */}
-      <View style={s.menuSection}>
-        {menuItems.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={s.menuItem}
-            onPress={() => {
-              const route = navMap[item.label];
-              if (route) navigation.navigate(route);
-            }}
-          >
-            <View style={[s.menuIcon, item.highlight && { backgroundColor: colors.primary + '15' }]}>
-              <Ionicons
-                name={item.icon as any}
-                size={22}
-                color={item.highlight ? colors.primary : '#444'}
-              />
-            </View>
-            <View style={{ flex: 1, marginLeft: 15 }}>
-              <Text style={[s.menuLabel, item.highlight && { color: colors.primary }]}>
-                {item.label}
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+      <ScrollView style={s.container}>
+        {/* Header */}
+        <View style={s.header}>
+          <View style={s.avatarContainer}>
+            <View style={s.avatarLarge}>
+              <Text style={s.avatarInitials}>
+                {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? 'T'}
               </Text>
-              <Text style={s.menuSub}>{item.sub}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#CCC" />
-          </TouchableOpacity>
-        ))}
-      </View>
+            <TouchableOpacity style={s.editBadge}>
+              <Ionicons name="camera" size={16} color="#FFF" />
+            </TouchableOpacity>
+          </View>
 
-      {/* Logout */}
-      <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={20} color="#FF4B4B" />
-        <Text style={s.logoutText}>Sair da Conta</Text>
-      </TouchableOpacity>
-    </ScrollView>
+          <Text style={s.userName}>{user?.nome ?? 'Técnico'}</Text>
+          <Text style={s.userEmail}>{user?.email ?? ''}</Text>
+
+          <View style={s.verifiedRow}>
+            <Ionicons name="shield-checkmark" size={14} color={colors.primary} />
+            <Text style={s.verifiedText}>Técnico Verificado</Text>
+          </View>
+
+          <TouchableOpacity
+            style={s.editProfileBtn}
+            onPress={() => navigation.navigate('EditPublicProfile')}
+          >
+            <Text style={s.editProfileText}>Editar Perfil Público</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Menu */}
+        <View style={s.menuSection}>
+          {menuItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={s.menuItem}
+              onPress={() => {
+                const route = navMap[item.label];
+                if (route) navigation.navigate(route);
+              }}
+            >
+              <View style={[s.menuIcon, item.highlight && { backgroundColor: colors.primary + '15' }]}>
+                <Ionicons
+                  name={item.icon as any}
+                  size={22}
+                  color={item.highlight ? colors.primary : '#444'}
+                />
+              </View>
+              <View style={{ flex: 1, marginLeft: 15 }}>
+                <Text style={[s.menuLabel, item.highlight && { color: colors.primary }]}>
+                  {item.label}
+                </Text>
+                <Text style={s.menuSub}>{item.sub}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#CCC" />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Logout */}
+        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color="#FF4B4B" />
+          <Text style={s.logoutText}>Sair da Conta</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FFF' },
   container: { flex: 1, backgroundColor: '#F8F9FF' },
   header: {
-    alignItems: 'center', padding: 30, backgroundColor: '#FFF',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+    paddingTop: 20,
+    paddingBottom: 30,
+    backgroundColor: '#FFF',
     borderBottomLeftRadius: 30, borderBottomRightRadius: 30,
     elevation: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10,
   },
@@ -130,10 +138,7 @@ const s = StyleSheet.create({
   },
   userName: { fontSize: 20, fontWeight: 'bold', marginTop: 15, color: '#333' },
   userEmail: { fontSize: 14, color: '#999', marginTop: 4 },
-  verifiedRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    marginTop: 8,
-  },
+  verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
   verifiedText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
   editProfileBtn: {
     marginTop: 15, paddingHorizontal: 20, paddingVertical: 8,

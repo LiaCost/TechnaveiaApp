@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, SafeAreaView, StatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,52 +29,59 @@ export function ClientProfileScreen({ navigation }: any) {
   }
 
   return (
-    <ScrollView style={s.container}>
-      <View style={s.header}>
-        <View style={s.avatarContainer}>
-          <View style={s.avatarLarge}>
-            <Text style={s.avatarInitials}>
-              {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? 'U'}
-            </Text>
+    <SafeAreaView style={s.safe}>
+      <ScrollView style={s.container}>
+        <View style={s.header}>
+          <View style={s.avatarContainer}>
+            <View style={s.avatarLarge}>
+              <Text style={s.avatarInitials}>
+                {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? 'U'}
+              </Text>
+            </View>
+            <TouchableOpacity style={s.editBadge}>
+              <Ionicons name="camera" size={16} color="#FFF" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={s.editBadge}>
-            <Ionicons name="camera" size={16} color="#FFF" />
+          <Text style={s.userName}>{user?.nome ?? 'Usuário'}</Text>
+          <Text style={s.userEmail}>{user?.email ?? ''}</Text>
+          <TouchableOpacity style={s.editProfileBtn}>
+            <Text style={s.editProfileText}>Editar Dados Pessoais</Text>
           </TouchableOpacity>
         </View>
-        <Text style={s.userName}>{user?.nome ?? 'Usuário'}</Text>
-        <Text style={s.userEmail}>{user?.email ?? ''}</Text>
-        <TouchableOpacity style={s.editProfileBtn}>
-          <Text style={s.editProfileText}>Editar Dados Pessoais</Text>
+
+        <View style={s.menuSection}>
+          {menuItems.map((item, index) => (
+            <TouchableOpacity key={index} style={s.menuItem}>
+              <View style={[s.menuIcon, item.highlight && { backgroundColor: colors.primary + '15' }]}>
+                <Ionicons name={item.icon as any} size={22} color={item.highlight ? colors.primary : '#444'} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 15 }}>
+                <Text style={[s.menuLabel, item.highlight && { color: colors.primary }]}>{item.label}</Text>
+                <Text style={s.menuSub}>{item.sub}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#CCC" />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color="#FF4B4B" />
+          <Text style={s.logoutText}>Sair da Conta</Text>
         </TouchableOpacity>
-      </View>
-
-      <View style={s.menuSection}>
-        {menuItems.map((item, index) => (
-          <TouchableOpacity key={index} style={s.menuItem}>
-            <View style={[s.menuIcon, item.highlight && { backgroundColor: colors.primary + '15' }]}>
-              <Ionicons name={item.icon as any} size={22} color={item.highlight ? colors.primary : '#444'} />
-            </View>
-            <View style={{ flex: 1, marginLeft: 15 }}>
-              <Text style={[s.menuLabel, item.highlight && { color: colors.primary }]}>{item.label}</Text>
-              <Text style={s.menuSub}>{item.sub}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#CCC" />
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={20} color="#FF4B4B" />
-        <Text style={s.logoutText}>Sair da Conta</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 export const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FFF' },
   container: { flex: 1, backgroundColor: '#F8F9FF' },
   header: {
-    alignItems: 'center', padding: 30, backgroundColor: '#FFF',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 16 : 30,
+    paddingBottom: 30,
+    backgroundColor: '#FFF',
     borderBottomLeftRadius: 30, borderBottomRightRadius: 30,
     elevation: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10,
   },

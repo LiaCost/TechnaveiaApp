@@ -1,14 +1,14 @@
 import React from 'react';
 import { 
-  View, Text, StyleSheet, SafeAreaView, ScrollView, 
-  TouchableOpacity, FlatList 
+  View, Text, StyleSheet, ScrollView, 
+  TouchableOpacity, StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 
 export function FinanceScreen({ navigation }: any) {
   
-  // Mock de transações
   const transactions = [
     { id: '1', service: 'Formatação PC', date: 'Hoje', gross: 'R$ 150,00', net: 'R$ 127,50', status: 'Concluído' },
     { id: '2', service: 'Troca de Tela', date: 'Ontem', gross: 'R$ 350,00', net: 'R$ 297,50', status: 'Pendente' },
@@ -16,7 +16,8 @@ export function FinanceScreen({ navigation }: any) {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8F9FF" />
       <ScrollView showsVerticalScrollIndicator={false}>
         
         {/* Cartão de Saldo Principal */}
@@ -45,7 +46,7 @@ export function FinanceScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* Gráfico de Ganhos Semanal (Simulação Visual) */}
+        {/* Gráfico de Ganhos Semanal */}
         <View style={styles.chartSection}>
           <Text style={styles.sectionTitle}>Desempenho (Últimos 7 dias)</Text>
           <View style={styles.chartBarContainer}>
@@ -62,7 +63,7 @@ export function FinanceScreen({ navigation }: any) {
         <View style={styles.extractSection}>
           <View style={styles.rowBetween}>
             <Text style={styles.sectionTitle}>Últimas Transações</Text>
-            <TouchableOpacity><Text style={{color: colors.primary}}>Ver tudo</Text></TouchableOpacity>
+            <TouchableOpacity><Text style={{ color: colors.primary }}>Ver tudo</Text></TouchableOpacity>
           </View>
 
           {transactions.map(item => (
@@ -94,7 +95,7 @@ export function FinanceScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FF' },
+  safe: { flex: 1, backgroundColor: '#F8F9FF' },
   balanceCard: { backgroundColor: colors.dark1, margin: 20, padding: 25, borderRadius: 25, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 5 },
   balanceLabel: { color: '#AAA', fontSize: 14 },
   balanceValue: { color: '#FFF', fontSize: 28, fontWeight: 'bold', marginTop: 5 },
@@ -117,5 +118,5 @@ const styles = StyleSheet.create({
   transService: { fontWeight: 'bold', fontSize: 14 },
   transDate: { fontSize: 12, color: '#999', marginTop: 2 },
   transNet: { fontWeight: 'bold', fontSize: 14, color: '#333' },
-  transStatus: { fontSize: 10, fontWeight: 'bold', marginTop: 2 }
+  transStatus: { fontSize: 10, fontWeight: 'bold', marginTop: 2 },
 });

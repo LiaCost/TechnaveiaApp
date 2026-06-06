@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 
@@ -11,8 +12,9 @@ export function TechReviewsScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView>
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+      <ScrollView style={styles.container}>
         {/* Header de Score */}
         <View style={styles.scoreSection}>
           <Text style={styles.bigScore}>4.9</Text>
@@ -23,7 +25,6 @@ export function TechReviewsScreen() {
           </View>
           <Text style={styles.totalReviews}>Baseado em 128 avaliações</Text>
           
-          {/* Barra de Progresso por Estrela */}
           <View style={styles.progressContainer}>
             <View style={styles.progressRow}>
               <Text style={styles.starLabel}>5 ★</Text>
@@ -58,7 +59,6 @@ export function TechReviewsScreen() {
 
               <Text style={styles.commentText}>{item.comment}</Text>
               
-              {/* Opção de Resposta do Técnico */}
               <TouchableOpacity style={styles.replyBtn}>
                 <Text style={styles.replyText}>Responder cliente</Text>
               </TouchableOpacity>
@@ -70,12 +70,11 @@ export function TechReviewsScreen() {
   );
 }
 
-import { TouchableOpacity } from 'react-native';
-
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FFF' },
   container: { flex: 1, backgroundColor: '#F8F9FF' },
   scoreSection: { backgroundColor: '#FFF', padding: 30, alignItems: 'center', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 2 },
-  bigScore: { fontSize: 48, fontWeight: 'bold', color: colors.dark1 },
+  bigScore: { fontSize: 48, fontWeight: 'bold', color: '#1A1A1A' },
   starsRow: { flexDirection: 'row', gap: 5, marginVertical: 10 },
   totalReviews: { color: '#999', fontSize: 14, marginBottom: 20 },
   progressContainer: { width: '100%', gap: 8 },
@@ -93,5 +92,5 @@ const styles = StyleSheet.create({
   starsMiniRow: { flexDirection: 'row', marginVertical: 8 },
   commentText: { color: '#444', lineHeight: 20, fontSize: 14 },
   replyBtn: { marginTop: 15, alignSelf: 'flex-start' },
-  replyText: { color: colors.primary, fontWeight: 'bold', fontSize: 13 }
+  replyText: { color: colors.primary, fontWeight: 'bold', fontSize: 13 },
 });

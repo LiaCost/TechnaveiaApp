@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, Switch, Alert, Modal,
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, Switch, Alert, Modal, StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 
@@ -202,6 +203,7 @@ export function AgendaScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
 
       {/* ── Header ── */}
       <View style={s.header}>
@@ -530,10 +532,10 @@ export function AgendaScreen({ navigation }: any) {
 
 // ─── Estilos ───────────────────────────────────────────────
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F9FF' },
+  safe: { flex: 1, backgroundColor: '#FFF' },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12, backgroundColor: '#FFF',
+    paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, backgroundColor: '#FFF',
   },
   headerTitle: { fontSize: 22, fontWeight: '700', color: colors.dark1 },
   headerSub: { fontSize: 13, color: '#888', marginTop: 2, textTransform: 'capitalize' },

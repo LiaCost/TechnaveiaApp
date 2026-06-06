@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, TextInput, Alert, Modal,
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, TextInput, Alert, Modal, StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 
@@ -106,6 +107,7 @@ export function WithdrawScreen({ navigation }: any) {
   if (showSuccess) {
     return (
       <SafeAreaView style={s.safe}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F8F9FF" />
         <View style={s.successScreen}>
           <View style={s.successIcon}>
             <Ionicons name="checkmark-circle" size={60} color={colors.primary} />
@@ -141,6 +143,7 @@ export function WithdrawScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
 
       {/* ── Header ── */}
       <View style={s.header}>
@@ -386,7 +389,7 @@ const s = StyleSheet.create({
   historyBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   historyBadgeText: { fontSize: 10, fontWeight: '700' },
 
-  footer: { padding: 20, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#EEE' },
+  footer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#EEE' },
   withdrawBtn: {
     backgroundColor: colors.dark1, borderRadius: 14, height: 54,
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,

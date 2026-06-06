@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, FlatList, Modal, Alert, TextInput,
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, FlatList, Modal, Alert, TextInput, StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 
@@ -244,6 +245,7 @@ export function RequestsListScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
 
       {/* ── Header ── */}
       <View style={s.header}>
@@ -478,7 +480,7 @@ export function RequestsListScreen({ navigation }: any) {
 
 // ─── Estilos ───────────────────────────────────────────────
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F9FF' },
+  safe: { flex: 1, backgroundColor: '#FFF' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12,

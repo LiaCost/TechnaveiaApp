@@ -1,16 +1,13 @@
 import React from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, Image, 
-  TouchableOpacity, SafeAreaView, FlatList, 
-  Alert
+  TouchableOpacity, SafeAreaView, Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { Button } from '../../components/Button';
-import { s } from './ClientProfileScreen';
 
 export function TechProfileScreen({ navigation }: any) {
-  // Mock de dados para o Portfólio
   const portfolio = [
     { id: '1', image: 'https://via.placeholder.com/150' },
     { id: '2', image: 'https://via.placeholder.com/150' },
@@ -18,15 +15,15 @@ export function TechProfileScreen({ navigation }: any) {
   ];
 
   function handleLogout() {
-      Alert.alert(
-        'Sair da conta',
-        'Tem certeza que deseja sair?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Sair', style: 'destructive', onPress: () => navigation.navigate('Login') },
-        ]
-      );
-    }
+    Alert.alert(
+      'Sair da conta',
+      'Tem certeza que deseja sair?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair', style: 'destructive', onPress: () => navigation.navigate('Login') },
+      ]
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -69,7 +66,7 @@ export function TechProfileScreen({ navigation }: any) {
           </Text>
         </View>
 
-        {/* Seção Portfólio (Antes/Depois) */}
+        {/* Seção Portfólio */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Portfólio</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -93,7 +90,7 @@ export function TechProfileScreen({ navigation }: any) {
         </View>
 
         {/* Avaliações */}
-        <View style={[styles.section, { marginBottom: 100 }]}>
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Avaliações</Text>
           <View style={styles.reviewCard}>
             <View style={styles.row}>
@@ -107,14 +104,15 @@ export function TechProfileScreen({ navigation }: any) {
           </View>
         </View>
 
-            <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={20} color="#FF4B4B" />
-        <Text style={s.logoutText}>Sair da Conta</Text>
-      </TouchableOpacity>
+        {/* Botão de Logout Localizado */}
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color="#FF4B4B" />
+          <Text style={styles.logoutText}>Sair da Conta</Text>
+        </TouchableOpacity>
             
       </ScrollView>
 
-      {/* Botão de Ação Fixo */}
+      {/* Botão de Ação Fixo na Base */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.chatBtn}>
           <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.primary} />
@@ -155,13 +153,13 @@ const styles = StyleSheet.create({
   reviewUser: { fontWeight: 'bold' },
   reviewComment: { color: '#666', marginTop: 5 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  footer: { position: 'absolute', bottom: 0, width: '100%', backgroundColor: '#FFF', padding: 20, flexDirection: 'row', gap: 15, borderTopWidth: 1, borderTopColor: '#EEE' },
+  footer: { backgroundColor: '#FFF', padding: 20, flexDirection: 'row', gap: 15, borderTopWidth: 1, borderTopColor: '#EEE' },
   chatBtn: { width: 56, height: 56, borderRadius: 15, borderWidth: 1, borderColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
   requestBtn: { flex: 1, backgroundColor: colors.primary, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
   requestBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, margin: 20, marginTop: 0, padding: 18,
+    gap: 8, margin: 20, padding: 18,
     backgroundColor: '#FFF', borderRadius: 15,
     borderWidth: 1, borderColor: '#FFE0E0',
   },

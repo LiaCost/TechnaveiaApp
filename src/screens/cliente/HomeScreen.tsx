@@ -1,15 +1,17 @@
 import React from 'react';
 import { 
   ScrollView, View, Text, StyleSheet, TextInput, 
-  FlatList, TouchableOpacity, SafeAreaView 
+  TouchableOpacity, StatusBar // <-- Importamos o StatusBar nativo para controlar a cor do topo
 } from 'react-native';
+// Importe o SafeAreaView da biblioteca correta:
+import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { Ionicons } from '@expo/vector-icons';
 import { colors, theme } from '../../theme';
 import { HomeHeader } from '../../components/HomeHeader';
 
 const CATEGORIES = [
   { id: '1', title: 'PCs', icon: 'desktop-outline' },
-  { id: '2', title: 'Celulares', icon: 'phone-portrait-outline' }, // Ícone corrigido aqui
+  { id: '2', title: 'Celulares', icon: 'phone-portrait-outline' },
   { id: '3', title: 'Redes', icon: 'wifi-outline' },
   { id: '4', title: 'Automação', icon: 'home-outline' },
   { id: '5', title: 'Segurança', icon: 'videocam-outline' },
@@ -20,8 +22,15 @@ const CATEGORIES = [
 
 export function HomeScreen() {
   return (
+    // Passamos edges para controlar quais lados recebem o espaçamento automático de segurança
     <SafeAreaView style={styles.safe}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      {/* Força os ícones do sistema (hora, wifi) a ficarem escuros (visíveis em fundos claros) */}
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent} // <-- Adicionado para dar respiro no final
+      >
         <HomeHeader name="Carlos" location="Av. Paulista, 1000 - SP" />
 
         {/* Barra de Busca */}
@@ -69,7 +78,6 @@ export function HomeScreen() {
             <TouchableOpacity><Text style={{color: colors.primary}}>Ver todos</Text></TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{paddingLeft: 20}}>
-             {/* Exemplo de Card */}
              {[1,2,3].map(i => (
                <View key={i} style={styles.techCard}>
                   <View style={styles.techPhoto} />
@@ -89,15 +97,22 @@ export function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.light },
+  safe: { 
+    flex: 1, 
+    backgroundColor: colors.light 
+  },
+  scrollContent: {
+    paddingBottom: 40 // <-- Garante que o conteúdo final não fique colado ou embaixo do menu inferior
+  },
   searchSection: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 25 },
   searchBar: { flex: 1, height: 50, backgroundColor: '#FFF', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15 },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 16 },
   filterBtn: { width: 50, height: 50, backgroundColor: colors.primary, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   section: { marginBottom: 25 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 15 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', paddingHorizontal: 20, marginBottom: 15, color: colors.dark1 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10 },
+  // Removido o paddingHorizontal fixo daqui para não quebrar o alinhamento com o ScrollView horizontal
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', paddingHorizontal: 20, color: colors.dark1 }, 
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, marginTop: 15 },
   catItem: { width: '25%', alignItems: 'center', marginBottom: 20 },
   catIcon: { width: 60, height: 60, backgroundColor: '#FFF', borderRadius: 15, justifyContent: 'center', alignItems: 'center', shadowOpacity: 0.1 },
   catLabel: { fontSize: 12, marginTop: 8, textAlign: 'center', fontWeight: '500' },

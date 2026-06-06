@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { 
-  View, Text, StyleSheet, SafeAreaView, ScrollView, 
-  TextInput, TouchableOpacity, Switch, Alert 
+  View, Text, StyleSheet, ScrollView, 
+  TextInput, TouchableOpacity, Switch, Alert, StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 
@@ -12,6 +13,8 @@ export function AddServiceScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+
       {/* Header Fixo */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -149,7 +152,7 @@ const styles = StyleSheet.create({
   uploadBox: { height: 120, borderRadius: 15, borderStyle: 'dashed', borderWidth: 2, borderColor: colors.primary + '40', justifyContent: 'center', alignItems: 'center', backgroundColor: colors.primary + '05' },
   uploadText: { color: colors.primary, fontWeight: '600', marginTop: 10 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 20, borderTopWidth: 1, borderColor: '#EEE' },
-  footer: { padding: 20, backgroundColor: '#FFF', borderTopWidth: 1, borderColor: '#EEE' },
+  footer: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, backgroundColor: '#FFF', borderTopWidth: 1, borderColor: '#EEE' },
   saveBtn: { backgroundColor: colors.dark1, padding: 18, borderRadius: 15, alignItems: 'center' },
-  saveBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 }
+  saveBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
 });

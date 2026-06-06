@@ -1,18 +1,22 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '.././theme';
 
 // Import das telas do Técnico
 import { TechHomeScreen } from '../screens/tech/TechHomeScreen';
-import { ServiceExecutionScreen } from '../screens/tech/ServiceExecutionScreen'; // Agenda/Execução
 import { ChatListScreen } from '../screens/chat/ChatListScreen';
 import { FinanceScreen } from '../screens/tech/FinanceScreen';
 import { TechAccountScreen } from '../screens/profile/TechAccountScreen';
+import { AgendaScreen } from '../screens/tech/AgendaScreen';
 
 const Tab = createBottomTabNavigator();
 
 export function TechTabs() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -20,8 +24,8 @@ export function TechTabs() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: '#999',
         tabBarStyle: {
-          height: 70,
-          paddingBottom: 10,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom || 10,
           paddingTop: 10,
           borderTopWidth: 1,
           borderTopColor: '#EEE',
@@ -46,29 +50,29 @@ export function TechTabs() {
         },
       })}
     >
-      <Tab.Screen 
-        name="Painel" 
-        component={TechHomeScreen} 
+      <Tab.Screen
+        name="Painel"
+        component={TechHomeScreen}
         options={{ tabBarLabel: 'Painel' }}
       />
-      <Tab.Screen 
-        name="Agenda" 
-        component={ServiceExecutionScreen} 
+      <Tab.Screen
+        name="Agenda"
+        component={AgendaScreen}
         options={{ tabBarLabel: 'Agenda' }}
       />
-      <Tab.Screen 
-        name="Chat" 
-        component={ChatListScreen} 
+      <Tab.Screen
+        name="Chat"
+        component={ChatListScreen}
         options={{ tabBarLabel: 'Chat' }}
       />
-      <Tab.Screen 
-        name="Ganhos" 
-        component={FinanceScreen} 
+      <Tab.Screen
+        name="Ganhos"
+        component={FinanceScreen}
         options={{ tabBarLabel: 'Ganhos' }}
       />
-      <Tab.Screen 
-        name="Conta" 
-        component={TechAccountScreen} 
+      <Tab.Screen
+        name="Conta"
+        component={TechAccountScreen}
         options={{ tabBarLabel: 'Conta' }}
       />
     </Tab.Navigator>
