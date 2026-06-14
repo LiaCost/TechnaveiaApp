@@ -1,7 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const STORAGE_KEY = '@technaveia:session';
+const STORAGE_KEY   = '@technaveia:session';
+const TOKEN_KEY     = '@technaveia:token'; // chave usada pelo cliente HTTP em api.
 
 interface User {
   id: string;
@@ -49,20 +50,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadSession();
   }, []);
 
-  async function signIn(token: string, type: 'client' | 'tech' | 'admin', userData: User) {
-    const session = { token, type, user: userData };
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    setUserToken(token);
-    setUserType(type);
-    setUser(userData);
-  }
+ async function signIn(token: string, type: 'client' | 'tech' | 'admin', userData: User) {
+  const session = { token, type, user: userData };
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  await AsyncStorage.setItem(TOKEN_KEY, token); // usa TOKEN_KEY aqui
+  setUserToken(token);
+  setUserType(type);
+  setUser(userData);
+}
 
-  async function signOut() {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-    setUserToken(null);
-    setUserType(null);
-    setUser(null);
-  }
+async function signOut() {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+  await AsyncStorage.removeItem(TOKEN_KEY); // remove TOKEN_KEY também
+  setUserToken(null);
+  setUserType(null);
+  setUser(null);
+}
+
 
   return (
     <AuthContext.Provider value={{

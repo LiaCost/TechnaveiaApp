@@ -7,6 +7,7 @@ import { theme, colors } from '../../theme';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { useAuth } from '../../contexts/AuthContext';
+import { authService } from '../../services/api';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 
 export function LoginScreen({ navigation }: any) {
@@ -29,18 +30,10 @@ export function LoginScreen({ navigation }: any) {
 
     setIsLoading(true);
     try {
-      // TODO: substituir pela chamada real à API
-      // const response = await api.post('/auth/login', { email, password });
-      // await signIn(response.token, response.userType, response.user);
-
-      // Simulação temporária para desenvolvimento
-      await signIn('token_temporario', 'client', {
-        id: '1',
-        nome: 'Usuário Teste',
-        email: email,
-      });
-    } catch (error) {
-      Alert.alert('Erro ao entrar', 'E-mail ou senha incorretos. Tente novamente.');
+      const response = await authService.login(email, password);
+      await signIn(response.token, response.userType, response.user);
+    } catch (error: any) {
+      Alert.alert('Erro ao entrar', error.message ?? 'E-mail ou senha incorretos. Tente novamente.');
     } finally {
       setIsLoading(false);
     }

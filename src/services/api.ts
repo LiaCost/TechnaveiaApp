@@ -13,8 +13,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Configuração ─────────────────────────────────────────
 
-const BASE_URL = 'https://api.technaveia.com.br/v1'; // TODO: trocar pela URL real
-const USE_MOCK = true; // Desligar quando a API estiver pronta
+const BASE_URL = 'https://technaveia-backend.onrender.com/v1';
+const USE_MOCK = false;
 const REQUEST_TIMEOUT = 10_000; // 10 segundos
 
 // ─── Tipos base ───────────────────────────────────────────

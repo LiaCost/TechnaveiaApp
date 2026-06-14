@@ -7,6 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { useAuth } from '../../contexts/AuthContext';
+import { authService } from '../../services/api';
 import { fetchAddressByCep } from '../../services/addressService';
 import { ImageSelector } from '../../components/ImageSelector';
 
@@ -307,12 +308,21 @@ export function RegisterScreen({ navigation }: any) {
     const finishClient = async () => {
       setIsSending(true);
       try {
-        await new Promise(r => setTimeout(r, 1200));
-        await signIn('token_novo_cliente', 'client', {
-          id: Date.now().toString(), nome: cd.nome, email: cd.email,
+        const response = await authService.register({
+          nome: cd.nome,
+          cpf: cd.cpf,
+          email: cd.email,
+          telefone: cd.telefone,
+          senha: cd.senha,
+          endereco: {
+            cep: cd.cep, rua: cd.rua, numero: cd.numero,
+            complemento: cd.complemento, bairro: cd.bairro,
+            cidade: cd.cidade, estado: cd.estado,
+          },
         });
-      } catch {
-        Alert.alert('Erro', 'Não foi possível criar sua conta.');
+        await signIn(response.token, response.userType, response.user);
+      } catch (error: any) {
+        Alert.alert('Erro', error.message ?? 'Não foi possível criar sua conta.');
         setIsSending(false);
       }
     };
@@ -443,13 +453,22 @@ export function RegisterScreen({ navigation }: any) {
   const finishTech = async () => {
     setIsSending(true);
     try {
-      await new Promise(r => setTimeout(r, 1200));
-      // Técnico entra mas com acesso limitado até aprovação
-      await signIn('token_novo_tecnico_pendente', 'tech', {
-        id: Date.now().toString(), nome: td.nome, email: td.email,
-      });
-    } catch {
-      Alert.alert('Erro', 'Não foi possível concluir o cadastro.');
+      const response = await authService.register({
+        nome: td.nome,
+        cpf: td.cpfCnpj,
+        email: td.email,
+        telefone: td.telefone,
+        senha: td.senha,
+        role: 'tecnico',
+        endereco: {
+          cep: td.cep, rua: td.rua, numero: td.numero,
+          complemento: td.complemento, bairro: td.bairro,
+          cidade: td.cidade, estado: td.estado,
+        },
+      } as any);
+      await signIn(response.token, response.userType, response.user);
+    } catch (error: any) {
+      Alert.alert('Erro', error.message ?? 'Não foi possível concluir o cadastro.');
       setIsSending(false);
     }
   };
