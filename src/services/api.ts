@@ -285,7 +285,7 @@ export const authService = {
       }
       throw new ApiError(401, 'E-mail ou senha incorretos');
     }
-    return post<{ token: string; userType: 'client' | 'tech' | 'admin'; user: User }>('/auth/login', { email, password });
+    return post<{ token: string; userType: 'client' | 'tech' | 'admin'; user: User }>('/auth/login', { email, senha: password });
   },
 
   async register(data: { nome: string; cpf: string; email: string; telefone: string; senha: string; endereco: object }) {

@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, TextInput, Switch, Alert,
-  KeyboardAvoidingView, Platform, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ActivityIndicator, StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { useAuth } from '../../contexts/AuthContext';
-import { authService } from '../../services/api';
 import { fetchAddressByCep } from '../../services/addressService';
 import { ImageSelector } from '../../components/ImageSelector';
 
@@ -100,7 +100,7 @@ const f = StyleSheet.create({
   disabled: { backgroundColor: '#F0F0F0' },
 });
 
-function StepHeader({ step, total, title, sub, onBack }: any) {
+function StepHeader({ step, total, onBack }: any) {
   return (
     <>
       <View style={s.header}>
@@ -113,17 +113,14 @@ function StepHeader({ step, total, title, sub, onBack }: any) {
       <View style={s.progressBar}>
         <View style={[s.progressFill, { width: `${(step / total) * 100}%` }]} />
       </View>
-      <View style={{ padding: 20, paddingBottom: 0 }}>
-        <Text style={s.stepTitle}>{title}</Text>
-        <Text style={s.stepSub}>{sub}</Text>
-      </View>
     </>
   );
 }
 
 function NextBtn({ label, onPress, loading = false }: any) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={s.footer}>
+    <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
       <TouchableOpacity style={s.nextBtn} onPress={onPress} disabled={loading}>
         {loading ? <ActivityIndicator color="#FFF" /> : (
           <>
@@ -137,6 +134,67 @@ function NextBtn({ label, onPress, loading = false }: any) {
 }
 
 // ─── Tela principal ────────────────────────────────────────
+
+function ProfileStep0({ profileType, setProfileType, onContinue }: any) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[s.profileSection, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+      <Text style={s.profileTitle}>Qual é o seu perfil?</Text>
+      <Text style={s.profileSub}>Escolha como você vai usar a TECHNAVEIA</Text>
+
+      {(['client', 'tech'] as ProfileType[]).map(type => (
+        <TouchableOpacity
+          key={type!}
+          style={[s.profileCard, profileType === type && s.profileCardActive]}
+          onPress={() => setProfileType(type)}
+        >
+          <View style={[s.profileIcon, profileType === type && s.profileIconActive]}>
+            <Ionicons
+              name={type === 'client' ? 'person' : 'construct'}
+              size={28}
+              color={profileType === type ? '#FFF' : colors.primary}
+            />
+          </View>
+          <View style={{ flex: 1, marginLeft: 16 }}>
+            <Text style={[s.profileCardTitle, profileType === type && { color: colors.primary }]}>
+              {type === 'client' ? 'Sou Cliente' : 'Sou Técnico / Prestador'}
+            </Text>
+            <Text style={s.profileCardSub}>
+              {type === 'client' ? 'Preciso de suporte técnico' : 'Quero oferecer serviços'}
+            </Text>
+          </View>
+          <Ionicons
+            name={profileType === type ? 'radio-button-on' : 'radio-button-off'}
+            size={22}
+            color={profileType === type ? colors.primary : '#CCC'}
+          />
+        </TouchableOpacity>
+      ))}
+
+      <TouchableOpacity
+        style={[s.nextBtn, !profileType && s.nextBtnDisabled]}
+        onPress={onContinue}
+      >
+        <Text style={s.nextBtnText}>Continuar</Text>
+        <Ionicons name="arrow-forward" size={18} color="#FFF" />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function SuccessClientScreen({ nome, onPress, loading }: any) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[s.successScreen, { paddingBottom: Math.max(insets.bottom + 20, 40) }]}>
+      <View style={s.successIcon}><Ionicons name="checkmark-circle" size={64} color={colors.primary} /></View>
+      <Text style={s.successTitle}>Bem-vindo, {nome.split(' ')[0]}!</Text>
+      <Text style={s.successSub}>Sua conta foi criada com sucesso. Agora você pode solicitar serviços técnicos na TECHNAVEIA.</Text>
+      <TouchableOpacity style={[s.nextBtn, { alignSelf: 'stretch' }]} onPress={onPress} disabled={loading}>
+        {loading ? <ActivityIndicator color="#FFF" /> : <><Text style={s.nextBtnText}>Explorar a plataforma</Text><Ionicons name="arrow-forward" size={18} color="#FFF" /></>}
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export function RegisterScreen({ navigation }: any) {
   const { signIn } = useAuth();
@@ -246,6 +304,7 @@ export function RegisterScreen({ navigation }: any) {
   if (step === 0) {
     return (
       <SafeAreaView style={s.safe}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F8F9FF" translucent={false} />
         <View style={s.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
             <Ionicons name="arrow-back" size={24} color={colors.dark1} />
@@ -254,47 +313,7 @@ export function RegisterScreen({ navigation }: any) {
           <View style={{ width: 40 }} />
         </View>
 
-        <View style={s.profileSection}>
-          <Text style={s.profileTitle}>Qual é o seu perfil?</Text>
-          <Text style={s.profileSub}>Escolha como você vai usar a TECHNAVEIA</Text>
-
-          {(['client', 'tech'] as ProfileType[]).map(type => (
-            <TouchableOpacity
-              key={type!}
-              style={[s.profileCard, profileType === type && s.profileCardActive]}
-              onPress={() => setProfileType(type)}
-            >
-              <View style={[s.profileIcon, profileType === type && s.profileIconActive]}>
-                <Ionicons
-                  name={type === 'client' ? 'person' : 'construct'}
-                  size={28}
-                  color={profileType === type ? '#FFF' : colors.primary}
-                />
-              </View>
-              <View style={{ flex: 1, marginLeft: 16 }}>
-                <Text style={[s.profileCardTitle, profileType === type && { color: colors.primary }]}>
-                  {type === 'client' ? 'Sou Cliente' : 'Sou Técnico / Prestador'}
-                </Text>
-                <Text style={s.profileCardSub}>
-                  {type === 'client' ? 'Preciso de suporte técnico' : 'Quero oferecer serviços'}
-                </Text>
-              </View>
-              <Ionicons
-                name={profileType === type ? 'radio-button-on' : 'radio-button-off'}
-                size={22}
-                color={profileType === type ? colors.primary : '#CCC'}
-              />
-            </TouchableOpacity>
-          ))}
-
-          <TouchableOpacity
-            style={[s.nextBtn, !profileType && s.nextBtnDisabled]}
-            onPress={() => { if (profileType) setStep(1); }}
-          >
-            <Text style={s.nextBtnText}>Continuar</Text>
-            <Ionicons name="arrow-forward" size={18} color="#FFF" />
-          </TouchableOpacity>
-        </View>
+        <ProfileStep0 profileType={profileType} setProfileType={setProfileType} onContinue={() => { if (profileType) setStep(1); }} />
       </SafeAreaView>
     );
   }
@@ -308,43 +327,35 @@ export function RegisterScreen({ navigation }: any) {
     const finishClient = async () => {
       setIsSending(true);
       try {
-        const response = await authService.register({
-          nome: cd.nome,
-          cpf: cd.cpf,
-          email: cd.email,
-          telefone: cd.telefone,
-          senha: cd.senha,
-          endereco: {
-            cep: cd.cep, rua: cd.rua, numero: cd.numero,
-            complemento: cd.complemento, bairro: cd.bairro,
-            cidade: cd.cidade, estado: cd.estado,
-          },
+        await new Promise(r => setTimeout(r, 1200));
+        await signIn('token_novo_cliente', 'client', {
+          id: Date.now().toString(), nome: cd.nome, email: cd.email,
         });
-        await signIn(response.token, response.userType, response.user);
-      } catch (error: any) {
-        Alert.alert('Erro', error.message ?? 'Não foi possível criar sua conta.');
+      } catch {
+        Alert.alert('Erro', 'Não foi possível criar sua conta.');
         setIsSending(false);
       }
     };
 
     return (
       <SafeAreaView style={s.safe}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFF" translucent={false} />
         <View style={s.header}>
           <TouchableOpacity onPress={goBack} style={s.backBtn}>
             <Ionicons name="arrow-back" size={24} color={colors.dark1} />
           </TouchableOpacity>
           <Text style={s.headerTitle}>Cadastro</Text>
-          <Text style={s.stepCounter}>{step}/{TOTAL}</Text>
+          <Text style={s.stepCounter}>{step <= TOTAL ? `${step}/${TOTAL}` : ''}</Text>
         </View>
         <View style={s.progressBar}>
-          <View style={[s.progressFill, { width: `${(step / TOTAL) * 100}%` }]} />
+          <View style={[s.progressFill, { width: `${(Math.min(step, TOTAL) / TOTAL) * 100}%` }]} />
         </View>
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
             {step === 1 && (
-              <View>
+              <View style={s.stepContent}>
                 <Text style={s.stepTitle}>Dados pessoais</Text>
                 <Text style={s.stepSub}>Precisamos confirmar quem você é</Text>
                 <StepField label="Nome completo" placeholder="Seu nome completo" value={cd.nome} onChangeText={(v: string) => setC('nome', v)} />
@@ -354,7 +365,7 @@ export function RegisterScreen({ navigation }: any) {
             )}
 
             {step === 2 && (
-              <View>
+              <View style={s.stepContent}>
                 <Text style={s.stepTitle}>Contato</Text>
                 <Text style={s.stepSub}>Usamos para enviar confirmações e alertas</Text>
                 <StepField label="E-mail" placeholder="seu@email.com" value={cd.email} onChangeText={(v: string) => setC('email', v)} keyboardType="email-address" />
@@ -367,7 +378,7 @@ export function RegisterScreen({ navigation }: any) {
             )}
 
             {step === 3 && (
-              <View>
+              <View style={s.stepContent}>
                 <Text style={s.stepTitle}>Endereço principal</Text>
                 <Text style={s.stepSub}>Para encontrarmos técnicos perto de você</Text>
                 <View style={f.wrap}>
@@ -391,7 +402,7 @@ export function RegisterScreen({ navigation }: any) {
             )}
 
             {step === 4 && (
-              <View>
+              <View style={s.stepContent}>
                 <Text style={s.stepTitle}>Crie sua senha</Text>
                 <Text style={s.stepSub}>Use letras, números e símbolos para uma senha forte</Text>
                 <View style={f.wrap}>
@@ -422,14 +433,7 @@ export function RegisterScreen({ navigation }: any) {
             )}
 
             {step === 5 && (
-              <View style={s.successScreen}>
-                <View style={s.successIcon}><Ionicons name="checkmark-circle" size={64} color={colors.primary} /></View>
-                <Text style={s.successTitle}>Bem-vindo, {cd.nome.split(' ')[0]}!</Text>
-                <Text style={s.successSub}>Sua conta foi criada com sucesso. Agora você pode solicitar serviços técnicos na TECHNAVEIA.</Text>
-                <TouchableOpacity style={s.nextBtn} onPress={finishClient} disabled={isSending}>
-                  {isSending ? <ActivityIndicator color="#FFF" /> : <><Text style={s.nextBtnText}>Explorar a plataforma</Text><Ionicons name="arrow-forward" size={18} color="#FFF" /></>}
-                </TouchableOpacity>
-              </View>
+              <SuccessClientScreen nome={cd.nome} onPress={finishClient} loading={isSending} />
             )}
 
           </ScrollView>
@@ -453,54 +457,47 @@ export function RegisterScreen({ navigation }: any) {
   const finishTech = async () => {
     setIsSending(true);
     try {
-      const response = await authService.register({
-        nome: td.nome,
-        cpf: td.cpfCnpj,
-        email: td.email,
-        telefone: td.telefone,
-        senha: td.senha,
-        role: 'tecnico',
-        endereco: {
-          cep: td.cep, rua: td.rua, numero: td.numero,
-          complemento: td.complemento, bairro: td.bairro,
-          cidade: td.cidade, estado: td.estado,
-        },
-      } as any);
-      await signIn(response.token, response.userType, response.user);
-    } catch (error: any) {
-      Alert.alert('Erro', error.message ?? 'Não foi possível concluir o cadastro.');
+      await new Promise(r => setTimeout(r, 1200));
+      // Técnico entra mas com acesso limitado até aprovação
+      await signIn('token_novo_tecnico_pendente', 'tech', {
+        id: Date.now().toString(), nome: td.nome, email: td.email,
+      });
+    } catch {
+      Alert.alert('Erro', 'Não foi possível concluir o cadastro.');
       setIsSending(false);
     }
   };
 
   return (
     <SafeAreaView style={s.safe}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}
-          stickyHeaderIndices={[0]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" translucent={false} />
 
-          {/* Header fixo */}
-          <View>
-            <StepHeader
-              step={step} total={TOTAL_TECH}
-              title={[
+      {/* Header fixo fora do ScrollView */}
+      <StepHeader step={step} total={TOTAL_TECH} onBack={goBack} />
+
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+          {/* Título e subtítulo da etapa — scrollam junto com o conteúdo */}
+          {step <= 7 && (
+            <View style={s.stepContent}>
+              <Text style={s.stepTitle}>{[
                 '', 'Tipo de pessoa', 'Contato e acesso',
                 'Localização e atuação', 'Especialidades',
                 'Documentação', 'Dados bancários', 'Cadastro enviado!',
-              ][step]}
-              sub={[
+              ][step]}</Text>
+              <Text style={s.stepSub}>{[
                 '', 'Informe seus dados básicos', 'Como você será contactado e acessará a plataforma',
                 'Onde e como você atende', 'Quais serviços você oferece',
                 'Envie seus documentos para verificação', 'Para onde vamos depositar seus ganhos',
                 '',
-              ][step]}
-              onBack={goBack}
-            />
-          </View>
+              ][step]}</Text>
+            </View>
+          )}
 
           {/* ── Etapa 1: Tipo de pessoa ── */}
           {step === 1 && (
-            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+            <View style={{ paddingHorizontal: 20 }}>
               <Text style={s.fieldLabel}>Tipo de cadastro</Text>
               <View style={s.tipoPessoaRow}>
                 {(['pf', 'pj'] as TipoPessoa[]).map(t => (
@@ -540,7 +537,7 @@ export function RegisterScreen({ navigation }: any) {
 
           {/* ── Etapa 2: Contato e acesso ── */}
           {step === 2 && (
-            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+            <View style={{ paddingHorizontal: 20 }}>
               <StepField label="E-mail profissional" placeholder="seu@email.com" value={td.email} onChangeText={(v: string) => setT('email', v)} keyboardType="email-address" />
               <StepField label="Telefone comercial" placeholder="(00) 00000-0000" value={td.telefone} onChangeText={(v: string) => setT('telefone', fmt.phone(v))} keyboardType="phone-pad" maxLength={15} />
               <StepField label="WhatsApp (opcional)" placeholder="(00) 00000-0000" value={td.whatsapp} onChangeText={(v: string) => setT('whatsapp', fmt.phone(v))} keyboardType="phone-pad" maxLength={15} />
@@ -564,7 +561,7 @@ export function RegisterScreen({ navigation }: any) {
 
           {/* ── Etapa 3: Localização e atuação ── */}
           {step === 3 && (
-            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+            <View style={{ paddingHorizontal: 20 }}>
               <View style={f.wrap}>
                 <Text style={f.label}>CEP</Text>
                 <View style={s.cepRow}>
@@ -616,7 +613,7 @@ export function RegisterScreen({ navigation }: any) {
 
           {/* ── Etapa 4: Especialidades ── */}
           {step === 4 && (
-            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+            <View style={{ paddingHorizontal: 20 }}>
               <Text style={s.stepSub}>Selecione todas as áreas em que você atende</Text>
               {ESPECIALIDADES.map(esp => {
                 const selected = td.especialidades.includes(esp.id);
@@ -649,7 +646,7 @@ export function RegisterScreen({ navigation }: any) {
 
           {/* ── Etapa 5: Documentação ── */}
           {step === 5 && (
-            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+            <View style={{ paddingHorizontal: 20 }}>
               <View style={s.warningBox}>
                 <Ionicons name="time-outline" size={18} color="#856404" />
                 <Text style={s.warningText}>Prazo de análise: até 48h úteis após o envio.</Text>
@@ -682,7 +679,7 @@ export function RegisterScreen({ navigation }: any) {
 
           {/* ── Etapa 6: Dados bancários ── */}
           {step === 6 && (
-            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+            <View style={{ paddingHorizontal: 20 }}>
               <StepField label="Banco" placeholder="Ex: Nubank, Itaú, Bradesco..." value={td.banco} onChangeText={(v: string) => setT('banco', v)} />
 
               <Text style={s.fieldLabel}>Tipo de conta / recebimento</Text>
@@ -747,7 +744,7 @@ export function RegisterScreen({ navigation }: any) {
                 <Text style={s.infoText}>Você receberá um e-mail e uma notificação quando sua conta for aprovada.</Text>
               </View>
 
-              <TouchableOpacity style={[s.nextBtn, { marginTop: 24 }]} onPress={finishTech} disabled={isSending}>
+              <TouchableOpacity style={[s.nextBtn, { marginTop: 24, alignSelf: 'stretch' }]} onPress={finishTech} disabled={isSending}>
                 {isSending ? <ActivityIndicator color="#FFF" /> : (
                   <><Text style={s.nextBtnText}>Ir para o Dashboard</Text><Ionicons name="arrow-forward" size={18} color="#FFF" /></>
                 )}
@@ -772,7 +769,7 @@ export function RegisterScreen({ navigation }: any) {
 // ─── Estilos ───────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F9FF' },
+  safe: { flex: 1, backgroundColor: '#F8F9FF', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE' },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
@@ -782,9 +779,11 @@ const s = StyleSheet.create({
   progressBar: { height: 3, backgroundColor: '#E8EEFF' },
   progressFill: { height: 3, backgroundColor: colors.primary, borderRadius: 2 },
 
-  scroll: { paddingBottom: 40 },
+  scroll: { flexGrow: 1, paddingBottom: 40 },
 
-  stepTitle: { fontSize: 22, fontWeight: '700', color: colors.dark1, marginBottom: 6 },
+  stepContent: { paddingHorizontal: 20, paddingTop: 32 },
+
+  stepTitle: { fontSize: 22, fontWeight: '700', color: colors.dark1, marginBottom: 6, marginTop: 4 },
   stepSub:   { fontSize: 14, color: '#666', marginBottom: 20, lineHeight: 20 },
   fieldLabel:{ fontSize: 12, fontWeight: '700', color: '#555', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10, marginTop: 6 },
   required:  { color: '#F44336' },
@@ -810,7 +809,7 @@ const s = StyleSheet.create({
   checkText:{ flex: 1, fontSize: 14, color: '#444', lineHeight: 20 },
   link:     { color: colors.primary, fontWeight: '600' },
 
-  footer:  { padding: 20, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#EEE' },
+  footer:  { paddingTop: 20, paddingHorizontal: 20, paddingBottom: 20, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#EEE' },
   nextBtn: { backgroundColor: colors.dark1, borderRadius: 14, height: 54, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
   nextBtnDisabled: { opacity: 0.4 },
   nextBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
