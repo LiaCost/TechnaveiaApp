@@ -244,7 +244,7 @@ export function RequestsListScreen({ navigation }: any) {
   const TABS: RequestTab[] = ['Novas', 'Em andamento', 'Concluídas', 'Canceladas'];
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
 
       {/* ── Header ── */}
@@ -483,15 +483,15 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FFF' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12,
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12,
     backgroundColor: '#FFF',
   },
   headerTitle: { fontSize: 22, fontWeight: '700', color: colors.dark1 },
   newBadge: { backgroundColor: '#FF6B00', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   newBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
-  tabsScroll: { backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE' },
-  tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 0 },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabsScroll: { backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE', flexGrow: 0 },
+  tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 0, alignItems: 'center' },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: colors.primary },
   tabText: { fontSize: 14, fontWeight: '600', color: '#999' },
   tabTextActive: { color: colors.primary },

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { 
-  View, Text, StyleSheet, SafeAreaView, 
+  View, Text, StyleSheet, StatusBar,
   FlatList, TouchableOpacity, ScrollView, 
   Switch
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 
@@ -24,14 +25,17 @@ export function NotificationsScreen() {
     { id: '4', type: 'message', title: 'Nova Mensagem', desc: 'Ana: "Pode vir amanhã às 10h?"', time: '5h', read: true },
   ]);
 
+  const insets = useSafeAreaInsets();
+
   const markAllRead = () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={[]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" translucent={false} />
       {/* Header com Ação */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle}>Notificações</Text>
         <TouchableOpacity onPress={markAllRead}>
           <Text style={styles.markReadText}>Limpar tudo</Text>

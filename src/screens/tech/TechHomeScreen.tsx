@@ -3,7 +3,7 @@ import {
   ScrollView, View, Text, StyleSheet, Switch,
   TouchableOpacity, StatusBar, Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { TechStats } from '../../components/TechStats';
@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export function TechHomeScreen({ navigation }: any) {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [isOnline, setIsOnline] = useState(true);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -33,12 +34,12 @@ export function TechHomeScreen({ navigation }: any) {
   const ganhosSemana = summary?.ganhosSemana.reduce((a, b) => a + b, 0) ?? 0;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+    <SafeAreaView style={styles.safe} edges={[]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" translucent={false} />
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* Header do Técnico */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <View style={styles.profileRow}>
             <View style={styles.avatarMini}>
               <Text style={styles.avatarInitials}>

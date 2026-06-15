@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 
 export function ChatListScreen() {
   const [activeTab, setActiveTab] = useState('Ativas');
+  const insets = useSafeAreaInsets();
 
   const chats = [
     { id: '1', name: 'Ricardo Silva (Técnico)', lastMsg: 'O orçamento já está pronto!', time: '14:20', unread: 2, online: true },
@@ -13,11 +14,11 @@ export function ChatListScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+    <SafeAreaView style={styles.safe} edges={[]}>  
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" translucent={false} />
       <View style={styles.container}>
         {/* Header com Busca */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <Text style={styles.title}>Mensagens</Text>
           <View style={styles.searchBar}>
             <Ionicons name="search" size={20} color="#999" />
@@ -25,6 +26,8 @@ export function ChatListScreen() {
           </View>
         </View>
 
+        {/* Tabs + Lista com fundo cinza */}
+        <View style={{ flex: 1, backgroundColor: '#F8F9FF' }}>
         {/* Tabs */}
         <View style={styles.tabs}>
           {['Ativas', 'Arquivadas'].map(tab => (
@@ -63,6 +66,7 @@ export function ChatListScreen() {
             </TouchableOpacity>
           )}
         />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -71,15 +75,15 @@ export function ChatListScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#FFF', // branco para combinar com o header atrás da status bar
+    backgroundColor: '#FFF', // mesmo fundo do header para não ter faixa no topo
   },
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FF',
+    backgroundColor: '#FFF',
   },
   header: { 
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 20,
     paddingBottom: 20,
     backgroundColor: '#FFF', 
     borderBottomLeftRadius: 30, 
@@ -88,6 +92,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 10,
+    zIndex: 1,
   },
   title: { 
     fontSize: 24, 

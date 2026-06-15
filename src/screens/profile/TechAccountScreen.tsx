@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function TechAccountScreen({ navigation }: any) {
   const { user, signOut } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const menuItems = [
     { icon: 'person-outline',          label: 'Editar Perfil Público',    sub: 'Bio, portfólio e certificados' },
@@ -41,11 +42,11 @@ export function TechAccountScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={s.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
-      <ScrollView style={s.container}>
+    <SafeAreaView style={s.safe} edges={[]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" translucent={false} />
+      <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
         {/* Header */}
-        <View style={s.header}>
+        <View style={[s.header, { paddingTop: insets.top + 12 }]}>
           <View style={s.avatarContainer}>
             <View style={s.avatarLarge}>
               <Text style={s.avatarInitials}>
