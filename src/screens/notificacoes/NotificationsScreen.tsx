@@ -1,34 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, StatusBar,
   FlatList, TouchableOpacity, ScrollView, 
-  Switch
+  Switch, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme';
+import { notificationService, Notification, ApiError } from '../../services/api';
 
 // Configuração de Estilos por Tipo
 const notificationConfig: any = {
-  request: { icon: 'briefcase', color: '#2196F3', label: 'Novo Pedido' },
+  request: { icon: 'briefcase', color: '#2196F3', label: 'Pedido' },
   payment: { icon: 'cash', color: '#4CAF50', label: 'Pagamento' },
   budget: { icon: 'receipt', color: '#FF9800', label: 'Orçamento' },
   message: { icon: 'chatbubbles', color: colors.primary, label: 'Mensagem' },
   system: { icon: 'notifications', color: '#607D8B', label: 'Sistema' },
+  evaluation: { icon: 'star', color: '#FFC107', label: 'Avaliação' },
 };
 
-export function NotificationsScreen() {
-  const [notifications, setNotifications] = useState([
-    { id: '1', type: 'request', title: 'Nova solicitação!', desc: 'Formatação de PC em Santana disponível.', time: '2 min', read: false },
-    { id: '2', type: 'payment', title: 'Pagamento Confirmado', desc: 'O valor do pedido #8829 já está no seu saldo.', time: '1h', read: false },
-    { id: '3', type: 'budget', title: 'Orçamento Recebido', desc: 'O técnico Ricardo enviou uma proposta.', time: '3h', read: true },
-    { id: '4', type: 'message', title: 'Nova Mensagem', desc: 'Ana: "Pode vir amanhã às 10h?"', time: '5h', read: true },
-  ]);
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 60000;
+  if (diff < 1) return 'Agora';
+  if (diff < 60) return `${Math.floor(diff)} min`;
+  if (diff < 1440) return `${Math.floor(diff / 60)}h`;
+  return `${Math.floor(diff / 1440)}d`;
+}
 
+export function NotificationsScreen() {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
 
-  const markAllRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  async function load(silent = false) {
+    if (!silent) setLoading(true);
+    try {
+      const data = await notificationService.list();
+      setNotifications(data);
+    } catch {
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useFocusEffect(useCallback(() => { load(); }, []));
+
+  const markAllRead = async () => {
+    try {
+      await notificationService.markAllRead();
+      setNotifications(prev => prev.map(n => ({ ...n, lida: true })));
+    } catch {}
   };
 
   return (
@@ -45,10 +70,25 @@ export function NotificationsScreen() {
       <FlatList
         data={notifications}
         keyExtractor={item => item.id}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={colors.primary} />
+        }
+        ListEmptyComponent={
+          loading ? (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <Ionicons name="notifications-off-outline" size={48} color="#DDD" />
+              <Text style={{ color: '#AAA', marginTop: 12 }}>Nenhuma notificação ainda</Text>
+            </View>
+          )
+        }
         renderItem={({ item }) => {
-          const config = notificationConfig[item.type];
+          const config = notificationConfig[item.tipo] ?? notificationConfig.system;
           return (
-            <TouchableOpacity style={[styles.notifCard, !item.read && styles.notifUnread]}>
+            <TouchableOpacity style={[styles.notifCard, !item.lida && styles.notifUnread]}>
               <View style={[styles.iconBox, { backgroundColor: config.color + '15' }]}>
                 <Ionicons name={config.icon} size={22} color={config.color} />
               </View>
@@ -56,13 +96,13 @@ export function NotificationsScreen() {
               <View style={{ flex: 1, marginLeft: 15 }}>
                 <View style={styles.rowBetween}>
                   <Text style={styles.notifLabel}>{config.label}</Text>
-                  <Text style={styles.notifTime}>{item.time}</Text>
+                  <Text style={styles.notifTime}>{timeAgo(item.createdAt)}</Text>
                 </View>
-                <Text style={styles.notifTitle}>{item.title}</Text>
-                <Text style={styles.notifDesc} numberOfLines={2}>{item.desc}</Text>
+                <Text style={styles.notifTitle}>{item.titulo}</Text>
+                <Text style={styles.notifDesc} numberOfLines={2}>{item.descricao}</Text>
               </View>
 
-              {!item.read && <View style={styles.unreadDot} />}
+              {!item.lida && <View style={styles.unreadDot} />}
             </TouchableOpacity>
           );
         }}

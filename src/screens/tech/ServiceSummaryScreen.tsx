@@ -77,7 +77,7 @@ const fl = StyleSheet.create({
 
 // ─── Tela principal ────────────────────────────────────────
 
-export function ServiceSummaryScreen({ navigation }: any) {
+export function ServiceSummaryScreen({ navigation, route }: any) {
   const [data, setData] = useState<SummaryData>({
     executedItems: '',
     recommendations: '',
@@ -131,6 +131,8 @@ export function ServiceSummaryScreen({ navigation }: any) {
   async function handleConfirm() {
     if (!validate()) return;
 
+    const orderId = route?.params?.orderId;
+
     Alert.alert(
       'Concluir serviço?',
       'O cliente será notificado para confirmar e avaliar o atendimento.',
@@ -140,9 +142,25 @@ export function ServiceSummaryScreen({ navigation }: any) {
           text: 'Confirmar conclusão',
           onPress: async () => {
             setIsSubmitting(true);
-            await new Promise(r => setTimeout(r, 1500));
-            setIsSubmitting(false);
-            setSubmitted(true);
+            try {
+              // Marca pedido como concluído no backend
+              if (orderId) {
+                const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+                const token = await AsyncStorage.getItem('@technaveia:token');
+                const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+                const finalVal = parseFloat(data.finalValue.replace(/\./g, '').replace(',', '.')) || 0;
+                await fetch(`${BASE_URL}/orders/${orderId}/status`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({ status: 'concluido', valorFinal: finalVal }),
+                });
+              }
+              setSubmitted(true);
+            } catch {
+              Alert.alert('Erro', 'Não foi possível concluir o pedido.');
+            } finally {
+              setIsSubmitting(false);
+            }
           },
         },
       ]
@@ -199,14 +217,18 @@ export function ServiceSummaryScreen({ navigation }: any) {
 
           <TouchableOpacity
             style={s.doneBtn}
-            onPress={() => navigation.navigate('Painel')}
+            onPress={() => navigation.popToTop()}
           >
             <Text style={s.doneBtnText}>Voltar ao Painel</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={s.financeBtn}
-            onPress={() => navigation.navigate('Ganhos')}
+            onPress={() => {
+              navigation.popToTop();
+              // Pequeno delay para garantir que voltou às tabs antes de navegar
+              setTimeout(() => navigation.navigate('Ganhos'), 100);
+            }}
           >
             <Ionicons name="wallet-outline" size={18} color={colors.primary} />
             <Text style={s.financeBtnText}>Ver saldo pendente</Text>

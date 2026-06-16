@@ -38,7 +38,7 @@ export function TechTabs() {
             iconName = focused ? 'speedometer' : 'speedometer-outline';
           } else if (route.name === 'Agenda') {
             iconName = focused ? 'calendar' : 'calendar-outline';
-          } else if (route.name === 'Chat') {
+          } else if (route.name === 'ChatList') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'Ganhos') {
             iconName = focused ? 'wallet' : 'wallet-outline';
@@ -61,7 +61,7 @@ export function TechTabs() {
         options={{ tabBarLabel: 'Agenda' }}
       />
       <Tab.Screen
-        name="Chat"
+        name="ChatList"
         component={ChatListScreen}
         options={{ tabBarLabel: 'Chat' }}
       />

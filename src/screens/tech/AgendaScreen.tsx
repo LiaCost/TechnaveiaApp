@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Switch, Alert, Modal, StatusBar,
+  TouchableOpacity, Switch, Alert, Modal, StatusBar, ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme';
+import { orderService, Order } from '../../services/api';
 
 // ─── Tipos ────────────────────────────────────────────────
 
@@ -176,23 +178,67 @@ export function AgendaScreen({ navigation }: any) {
   const [selectedDate, setSelectedDate] = useState(today);
   const [monthAnchor, setMonthAnchor] = useState({ year: today.getFullYear(), month: today.getMonth() });
   const [schedule, setSchedule] = useState<WorkSchedule>(DEFAULT_SCHEDULE);
+  const insets = useSafeAreaInsets();
   const [showAvailability, setShowAvailability] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  const [allAppointments, setAllAppointments] = useState<Record<string, Appointment[]>>({});
+  const [loading, setLoading] = useState(true);
+
+  // Carrega pedidos aceitos/andamento da API e mapeia para Appointments
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      orderService.list()
+        .then(orders => {
+          const mapped: Record<string, Appointment[]> = {};
+          orders.forEach(order => {
+            if (!['aceito', 'andamento', 'concluido'].includes(order.status)) return;
+            const key = order.dataAgendada
+              ? (() => {
+                  // dataAgendada vem como "DD/MM/YYYY" após normalizeOrder
+                  const parts = order.dataAgendada.split('/');
+                  if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                  return dateKey(new Date());
+                })()
+              : dateKey(new Date());
+            const statusMap: Record<string, AppointmentStatus> = {
+              aceito: 'confirmado', andamento: 'andamento', concluido: 'concluido',
+            };
+            const appt: Appointment = {
+              id: order.id,
+              clientName: order.cliente?.nome ?? 'Cliente',
+              service: `${order.categoria} - ${order.subcategoria}`,
+              time: order.horaAgendada ?? '09:00',
+              duration: 60,
+              status: statusMap[order.status] ?? 'confirmado',
+              address: order.endereco ?? (order.modalidade === 'remoto' ? 'Remoto' : 'A definir'),
+              modalidade: order.modalidade,
+            };
+            if (!mapped[key]) mapped[key] = [];
+            mapped[key].push(appt);
+          });
+          setAllAppointments(mapped);
+        })
+        .catch(() => setAllAppointments({}))
+        .finally(() => setLoading(false));
+    }, [])
+  );
+
+  const selectedKey = dateKey(selectedDate);
+  const appointments = allAppointments[selectedKey] ?? [];
 
   const weekDates = getWeekDates(selectedDate);
   const monthGrid = getMonthDates(monthAnchor.year, monthAnchor.month);
-  const selectedKey = dateKey(selectedDate);
-  const appointments = MOCK_APPOINTMENTS[selectedKey] ?? [];
+
+  function apptCount(d: Date) {
+    return allAppointments[dateKey(d)]?.length ?? 0;
+  }
 
   function toggleDay(dayName: string) {
     setSchedule(prev => ({
       ...prev,
       [dayName]: { ...prev[dayName], enabled: !prev[dayName].enabled },
     }));
-  }
-
-  function apptCount(d: Date) {
-    return MOCK_APPOINTMENTS[dateKey(d)]?.length ?? 0;
   }
 
   function handleApptAction(action: 'confirm' | 'reschedule' | 'cancel') {
@@ -202,8 +248,8 @@ export function AgendaScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={s.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" translucent={false} />
 
       {/* ── Header ── */}
       <View style={s.header}>
@@ -234,7 +280,7 @@ export function AgendaScreen({ navigation }: any) {
         ))}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
 
         {/* ── Visão Dia ── */}
         {viewMode === 'day' && (
@@ -447,7 +493,7 @@ export function AgendaScreen({ navigation }: any) {
                     <View style={m.actions}>
                       <TouchableOpacity
                         style={[m.btn, { backgroundColor: '#E8F5E9', flex: 1 }]}
-                        onPress={() => navigation.navigate('ServiceExecution')}
+                        onPress={() => { setSelectedAppt(null); const parent = navigation.getParent(); (parent ?? navigation).navigate('ServiceExecution', { orderId: selectedAppt.id }); }}
                       >
                         <Ionicons name="play-circle-outline" size={18} color="#2E7D32" />
                         <Text style={[m.btnText, { color: '#2E7D32' }]}>Iniciar</Text>
@@ -532,7 +578,7 @@ export function AgendaScreen({ navigation }: any) {
 
 // ─── Estilos ───────────────────────────────────────────────
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFF' },
+  safe: { flex: 1, backgroundColor: '#F8F9FF' },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, backgroundColor: '#FFF',

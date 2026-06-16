@@ -10,6 +10,7 @@ import { colors } from '../../theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchAddressByCep } from '../../services/addressService';
 import { ImageSelector } from '../../components/ImageSelector';
+import { authService, ApiError } from '../../services/api';
 
 // ─── Tipos ────────────────────────────────────────────────
 
@@ -327,12 +328,26 @@ export function RegisterScreen({ navigation }: any) {
     const finishClient = async () => {
       setIsSending(true);
       try {
-        await new Promise(r => setTimeout(r, 1200));
-        await signIn('token_novo_cliente', 'client', {
-          id: Date.now().toString(), nome: cd.nome, email: cd.email,
+        const result = await authService.register({
+          nome: cd.nome,
+          cpf: cd.cpf.replace(/\D/g, ''),
+          email: cd.email,
+          telefone: cd.telefone.replace(/\D/g, ''),
+          senha: cd.senha,
+          endereco: {
+            cep: cd.cep.replace(/\D/g, ''),
+            rua: cd.rua,
+            numero: cd.numero,
+            complemento: cd.complemento,
+            bairro: cd.bairro,
+            cidade: cd.cidade,
+            estado: cd.estado,
+          },
         });
-      } catch {
-        Alert.alert('Erro', 'Não foi possível criar sua conta.');
+        await signIn(result.token, result.userType, result.user);
+      } catch (err) {
+        const msg = err instanceof ApiError ? err.message : 'Não foi possível criar sua conta.';
+        Alert.alert('Erro no cadastro', msg);
         setIsSending(false);
       }
     };
@@ -457,13 +472,37 @@ export function RegisterScreen({ navigation }: any) {
   const finishTech = async () => {
     setIsSending(true);
     try {
-      await new Promise(r => setTimeout(r, 1200));
-      // Técnico entra mas com acesso limitado até aprovação
-      await signIn('token_novo_tecnico_pendente', 'tech', {
-        id: Date.now().toString(), nome: td.nome, email: td.email,
+      const result = await authService.register({
+        nome: td.nome,
+        cpf: td.cpfCnpj.replace(/\D/g, ''),
+        email: td.email,
+        telefone: td.telefone.replace(/\D/g, ''),
+        senha: td.senha,
+        tipo: 'tech',
+        especialidades: td.especialidades,
+        raioAtendimento: td.raioAtendimento,
+        modalidade: td.modalidade,
+        whatsapp: td.whatsapp.replace(/\D/g, '') || undefined,
+        banco: td.banco || undefined,
+        tipoConta: td.tipoConta,
+        chavePix: td.chavePix || undefined,
+        agencia: td.agencia || undefined,
+        conta: td.conta || undefined,
+        endereco: {
+          cep: td.cep.replace(/\D/g, ''),
+          rua: td.rua,
+          numero: td.numero,
+          complemento: td.complemento,
+          bairro: td.bairro,
+          cidade: td.cidade,
+          estado: td.estado,
+        },
       });
-    } catch {
-      Alert.alert('Erro', 'Não foi possível concluir o cadastro.');
+      // Técnico entra com acesso limitado até aprovação
+      await signIn(result.token, result.userType, result.user);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Não foi possível concluir o cadastro.';
+      Alert.alert('Erro no cadastro', msg);
       setIsSending(false);
     }
   };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, SafeAreaView, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, SafeAreaView, StatusBar, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,6 +16,17 @@ export function ClientProfileScreen({ navigation }: any) {
     { icon: 'settings-outline', label: 'Configurações', sub: 'Segurança, tema, privacidade' },
     { icon: 'help-circle-outline', label: 'Suporte', sub: 'Ajuda e FAQ' },
   ];
+
+    const navMap: Record<string, string> = {
+    'Editar Dados Pessoais':  'NT',
+    'Meus Endereços':          'NT',
+    'Pagamentos':      'Payment',
+    'Histórico de Pedidos':             'NA',
+    'Minhas Avaliações':                 'MyReviews',
+    'Indique e Ganhe':          'NT',
+    'Configurações':          'Settings',
+    'Suporte':                'HelpCenter',
+  };
 
   function handleLogout() {
     Alert.alert(
@@ -34,24 +45,31 @@ export function ClientProfileScreen({ navigation }: any) {
         <View style={s.header}>
           <View style={s.avatarContainer}>
             <View style={s.avatarLarge}>
-              <Text style={s.avatarInitials}>
-                {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? 'U'}
-              </Text>
+              {user?.foto ? (
+                <Image source={{ uri: user.foto }} style={{ width: 100, height: 100, borderRadius: 50 }} />
+              ) : (
+                <Text style={s.avatarInitials}>
+                  {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? 'U'}
+                </Text>
+              )}
             </View>
-            <TouchableOpacity style={s.editBadge}>
+            <TouchableOpacity style={s.editBadge} onPress={() => navigation.navigate('EditProfile')}>
               <Ionicons name="camera" size={16} color="#FFF" />
             </TouchableOpacity>
           </View>
           <Text style={s.userName}>{user?.nome ?? 'Usuário'}</Text>
           <Text style={s.userEmail}>{user?.email ?? ''}</Text>
-          <TouchableOpacity style={s.editProfileBtn}>
+          <TouchableOpacity style={s.editProfileBtn} onPress={() => navigation.navigate('EditProfile')}>
             <Text style={s.editProfileText}>Editar Dados Pessoais</Text>
           </TouchableOpacity>
         </View>
 
         <View style={s.menuSection}>
           {menuItems.map((item, index) => (
-            <TouchableOpacity key={index} style={s.menuItem}>
+            <TouchableOpacity key={index} style={s.menuItem}onPress={() => {
+                const route = navMap[item.label];
+                if (route) navigation.navigate(route);
+              }}>
               <View style={[s.menuIcon, item.highlight && { backgroundColor: colors.primary + '15' }]}>
                 <Ionicons name={item.icon as any} size={22} color={item.highlight ? colors.primary : '#444'} />
               </View>

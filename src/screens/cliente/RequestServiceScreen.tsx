@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, TextInput, Alert, Animated,
-  KeyboardAvoidingView, Platform, FlatList,
+  KeyboardAvoidingView, Platform, FlatList, ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../../theme';
+import { technicianService, orderService, Technician, ApiError } from '../../services/api';
 
 // ─── Tipos ────────────────────────────────────────────────
 
@@ -15,18 +17,6 @@ interface Category {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   subcategories: string[];
-}
-
-interface Technician {
-  id: string;
-  name: string;
-  specialty: string;
-  rating: number;
-  reviews: number;
-  distance: string;
-  price: string;
-  verified: boolean;
-  available: boolean;
 }
 
 interface ServiceRequest {
@@ -82,12 +72,6 @@ const CATEGORIES: Category[] = [
     id: 'tv', label: 'Smart TV / Home Theater', icon: 'tv-outline',
     subcategories: ['Sem imagem', 'Sem som', 'Configuração de streaming', 'Instalação', 'Outro'],
   },
-];
-
-const MOCK_TECHNICIANS: Technician[] = [
-  { id: '1', name: 'Ricardo Silva', specialty: 'Hardware & Redes', rating: 4.9, reviews: 128, distance: '2.5km', price: 'R$ 80–150', verified: true, available: true },
-  { id: '2', name: 'Ana Oliveira', specialty: 'Notebooks & Celulares', rating: 5.0, reviews: 74, distance: '3.8km', price: 'R$ 100–200', verified: true, available: true },
-  { id: '3', name: 'Marcos Paulo', specialty: 'Redes e Automação', rating: 4.7, reviews: 52, distance: '5.1km', price: 'R$ 70–130', verified: false, available: true },
 ];
 
 const TIMES = ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
@@ -162,7 +146,7 @@ function NextButton({ label = 'Próximo', onPress, disabled = false }: {
 }
 
 const nb = StyleSheet.create({
-  wrap: { padding: 20, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#EEE' },
+  wrap: { padding: 20, paddingBottom: Platform.OS === 'android' ? 34 : 20, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#EEE' },
   btn: {
     backgroundColor: colors.dark1, borderRadius: 14, height: 54,
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,
@@ -187,6 +171,11 @@ export function RequestServiceScreen({ navigation }: any) {
     notes: '', aceitaTermos: false,
   });
 
+  // Técnicos carregados da API
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [loadingTechs, setLoadingTechs] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
   function set<K extends keyof ServiceRequest>(key: K, val: ServiceRequest[K]) {
     setReq(prev => ({ ...prev, [key]: val }));
   }
@@ -197,6 +186,17 @@ export function RequestServiceScreen({ navigation }: any) {
   }
 
   function goNext() { setStep(s => s + 1); }
+
+  // Carrega técnicos quando chega no passo 4
+  useEffect(() => {
+    if (step !== 4) return;
+    setLoadingTechs(true);
+    technicianService
+      .search({ categoria: req.categoryId, modalidade: req.modalidade })
+      .then(data => setTechnicians(data))
+      .catch(() => Alert.alert('Erro', 'Não foi possível carregar os técnicos.'))
+      .finally(() => setLoadingTechs(false));
+  }, [step]);
 
   // ── Passo 1: Categoria e descrição ──────────────────────
   async function pickPhoto() {
@@ -239,21 +239,66 @@ export function RequestServiceScreen({ navigation }: any) {
   }
 
   // ── Passo 4: Técnico ─────────────────────────────────────
-  function validateStep4() {
+  async function validateStep4(): Promise<boolean> {
     if (!req.technicianId && !req.anyTechnician) {
       Alert.alert('Escolha um técnico ou selecione "Qualquer disponível"');
       return false;
     }
+
+    // Se escolheu um técnico específico E não é urgente, verifica disponibilidade
+    if (req.technicianId && !req.isUrgent && req.date && req.time) {
+      try {
+        const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+        const res = await fetch(`${BASE_URL}/technicians/${req.technicianId}/availability?date=${req.date}`);
+        if (res.ok) {
+          const json = await res.json();
+          const ocupados: string[] = json.data?.horariosOcupados ?? [];
+          if (ocupados.includes(req.time)) {
+            Alert.alert(
+              'Horário indisponível',
+              `O técnico já tem um agendamento às ${req.time}. Por favor, volte e escolha outro horário.`,
+              [
+                { text: 'Escolher outro horário', onPress: () => setStep(3) },
+                { text: 'Escolher outro técnico' },
+              ]
+            );
+            return false;
+          }
+        }
+      } catch {
+        // Se falhou a consulta, permite seguir (não bloqueia o fluxo)
+      }
+    }
+
     return true;
   }
 
   // ── Passo 5: Confirmação ─────────────────────────────────
-  function handleConfirm() {
+  async function handleConfirm() {
     if (!req.aceitaTermos) {
       Alert.alert('Aceite os termos para continuar');
       return;
     }
-    goNext();
+    setSubmitting(true);
+    try {
+      await orderService.create({
+        categoria: req.categoryLabel,
+        subcategoria: req.subcategory,
+        descricao: req.description,
+        modalidade: req.modalidade,
+        endereco: req.modalidade === 'presencial' ? req.endereco : undefined,
+        dataAgendada: req.isUrgent ? undefined : req.date,
+        horaAgendada: req.isUrgent ? undefined : req.time,
+        tecnicoId: req.anyTechnician ? undefined : (req.technicianId ?? undefined),
+        status: 'solicitado',
+      });
+      goNext();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Não foi possível enviar sua solicitação.';
+      Alert.alert('Erro', msg);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // ── Passo 6: Aguardando ──────────────────────────────────
@@ -270,7 +315,7 @@ export function RequestServiceScreen({ navigation }: any) {
     return () => loop.stop();
   }, [step]);
 
-  const selectedTech = MOCK_TECHNICIANS.find(t => t.id === req.technicianId);
+  const selectedTech = technicians.find(t => t.id === req.technicianId);
   const selectedDate = DATES.find(d => d.value === req.date);
 
   // ─── Render ──────────────────────────────────────────────
@@ -559,53 +604,68 @@ export function RequestServiceScreen({ navigation }: any) {
 
               <Text style={s.sectionLabel}>Ou escolha um específico</Text>
 
-              {MOCK_TECHNICIANS.map(tech => (
-                <TouchableOpacity
-                  key={tech.id}
-                  style={[
-                    s.techCard,
-                    req.technicianId === tech.id && !req.anyTechnician && s.techCardActive,
-                    req.anyTechnician && s.techCardDimmed,
-                  ]}
-                  onPress={() => {
-                    if (req.anyTechnician) return;
-                    set('technicianId', req.technicianId === tech.id ? null : tech.id);
-                  }}
-                >
-                  <View style={s.techAvatar}>
-                    <Text style={s.techInitials}>{tech.name.split(' ').map(n => n[0]).join('')}</Text>
-                    {tech.verified && (
-                      <View style={s.verifiedBadge}>
-                        <Ionicons name="checkmark" size={10} color="#FFF" />
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={{ flex: 1, marginLeft: 14 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={s.techName}>{tech.name}</Text>
-                      {tech.verified && (
-                        <Text style={s.verifiedText}>Verificado</Text>
+              {loadingTechs ? (
+                <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+              ) : technicians.length === 0 ? (
+                <View style={{ alignItems: 'center', padding: 20 }}>
+                  <Ionicons name="search-outline" size={40} color="#CCC" />
+                  <Text style={{ color: '#999', marginTop: 10, textAlign: 'center' }}>
+                    Nenhum técnico disponível para essa categoria no momento.
+                  </Text>
+                </View>
+              ) : (
+                technicians.map(tech => (
+                  <TouchableOpacity
+                    key={tech.id}
+                    style={[
+                      s.techCard,
+                      req.technicianId === tech.id && !req.anyTechnician && s.techCardActive,
+                      req.anyTechnician && s.techCardDimmed,
+                    ]}
+                    onPress={() => {
+                      if (req.anyTechnician) return;
+                      set('technicianId', req.technicianId === tech.id ? null : tech.id);
+                    }}
+                  >
+                    <View style={s.techAvatar}>
+                      <Text style={s.techInitials}>{tech.nome.split(' ').map(n => n[0]).join('')}</Text>
+                      {tech.verificado && (
+                        <View style={s.verifiedBadge}>
+                          <Ionicons name="checkmark" size={10} color="#FFF" />
+                        </View>
                       )}
                     </View>
-                    <Text style={s.techSpec}>{tech.specialty}</Text>
-                    <View style={s.techMeta}>
-                      <Ionicons name="star" size={13} color="#FFC107" />
-                      <Text style={s.techMetaText}>{tech.rating} ({tech.reviews})</Text>
-                      <Ionicons name="location-outline" size={13} color="#999" />
-                      <Text style={s.techMetaText}>{tech.distance}</Text>
-                    </View>
-                  </View>
 
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={s.techPrice}>{tech.price}</Text>
-                    <Text style={s.techPriceSub}>estimativa</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                    <View style={{ flex: 1, marginLeft: 14 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={s.techName}>{tech.nome}</Text>
+                        {tech.verificado && (
+                          <Text style={s.verifiedText}>Verificado</Text>
+                        )}
+                      </View>
+                      <Text style={s.techSpec}>{tech.especialidades.join(', ')}</Text>
+                      <View style={s.techMeta}>
+                        <Ionicons name="star" size={13} color="#FFC107" />
+                        <Text style={s.techMetaText}>{tech.avaliacao} ({tech.totalAvaliacoes})</Text>
+                        {tech.distancia && (
+                          <>
+                            <Ionicons name="location-outline" size={13} color="#999" />
+                            <Text style={s.techMetaText}>{tech.distancia}</Text>
+                          </>
+                        )}
+                      </View>
+                    </View>
+
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={s.techPrice}>{tech.precoMedio ?? 'A combinar'}</Text>
+                      <Text style={s.techPriceSub}>estimativa</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
 
             </ScrollView>
-            <NextButton onPress={() => { if (validateStep4()) goNext(); }} />
+            <NextButton onPress={async () => { if (await validateStep4()) goNext(); }} />
           </>
         )}
 
@@ -662,7 +722,7 @@ export function RequestServiceScreen({ navigation }: any) {
                   <View style={{ marginLeft: 12 }}>
                     <Text style={s.summaryKey}>Técnico</Text>
                     <Text style={s.summaryVal}>
-                      {req.anyTechnician ? 'Qualquer técnico disponível' : selectedTech?.name ?? '–'}
+                      {req.anyTechnician ? 'Qualquer técnico disponível' : selectedTech?.nome ?? '–'}
                     </Text>
                   </View>
                 </View>
@@ -674,7 +734,7 @@ export function RequestServiceScreen({ navigation }: any) {
                     <Text style={s.summaryVal}>
                       {req.anyTechnician
                         ? 'A combinar após diagnóstico'
-                        : selectedTech?.price ?? 'A combinar'}
+                        : selectedTech?.precoMedio ?? 'A combinar'}
                     </Text>
                   </View>
                 </View>
@@ -710,7 +770,7 @@ export function RequestServiceScreen({ navigation }: any) {
               </TouchableOpacity>
 
             </ScrollView>
-            <NextButton label="Confirmar Solicitação" onPress={handleConfirm} />
+            <NextButton label="Confirmar Solicitação" onPress={handleConfirm} disabled={submitting} />
           </>
         )}
 
@@ -765,7 +825,7 @@ export function RequestServiceScreen({ navigation }: any) {
               <Text style={s.cancelText}>Cancelar solicitação</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={s.homeBtn} onPress={() => navigation.navigate('Início')}>
+            <TouchableOpacity style={s.homeBtn} onPress={() => navigation.popToTop()}>
               <Text style={s.homeBtnText}>Voltar para o início</Text>
               <Ionicons name="home-outline" size={18} color={colors.primary} />
             </TouchableOpacity>
@@ -779,7 +839,7 @@ export function RequestServiceScreen({ navigation }: any) {
 
 // ─── Estilos ───────────────────────────────────────────────
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F9FF' },
+  safe: { flex: 1, backgroundColor: '#F8F9FF', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   scroll: { padding: 20, paddingBottom: 40 },
 
   sectionLabel: { fontSize: 13, fontWeight: '700', color: '#444', marginBottom: 10, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },

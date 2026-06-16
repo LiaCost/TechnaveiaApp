@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar, Platform, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
@@ -10,6 +10,7 @@ export function TechAccountScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
 
   const menuItems = [
+    { icon: 'camera-outline',          label: 'Editar Dados e Foto',      sub: 'Nome, foto de perfil' },
     { icon: 'person-outline',          label: 'Editar Perfil Público',    sub: 'Bio, portfólio e certificados' },
     { icon: 'construct-outline',       label: 'Meus Serviços',            sub: 'Gerenciar serviços cadastrados' },
     { icon: 'star-outline',            label: 'Minhas Avaliações',        sub: 'Ver feedbacks dos clientes' },
@@ -21,6 +22,7 @@ export function TechAccountScreen({ navigation }: any) {
   ];
 
   const navMap: Record<string, string> = {
+    'Editar Dados e Foto':    'EditProfile',
     'Editar Perfil Público':  'EditPublicProfile',
     'Meus Serviços':          'AddService',
     'Minhas Avaliações':      'Reviews',
@@ -49,11 +51,15 @@ export function TechAccountScreen({ navigation }: any) {
         <View style={[s.header, { paddingTop: insets.top + 12 }]}>
           <View style={s.avatarContainer}>
             <View style={s.avatarLarge}>
-              <Text style={s.avatarInitials}>
-                {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? 'T'}
-              </Text>
+              {user?.foto ? (
+                <Image source={{ uri: user.foto }} style={{ width: 100, height: 100, borderRadius: 50 }} />
+              ) : (
+                <Text style={s.avatarInitials}>
+                  {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') ?? 'T'}
+                </Text>
+              )}
             </View>
-            <TouchableOpacity style={s.editBadge}>
+            <TouchableOpacity style={s.editBadge} onPress={() => navigation.navigate('EditProfile')}>
               <Ionicons name="camera" size={16} color="#FFF" />
             </TouchableOpacity>
           </View>

@@ -1,39 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, TextInput, Alert, Modal, ScrollView,
+  ActivityIndicator, RefreshControl, Platform, StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ─── Tipos ────────────────────────────────────────────────
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
 
 type OrderStatus = 'solicitado' | 'aceito' | 'andamento' | 'concluido' | 'cancelado' | 'disputa';
 
 interface AdminOrder {
   id: string;
   numero: string;
-  cliente: string;
-  tecnico: string;
-  servico: string;
+  clienteId: string;
+  tecnicoId?: string;
   categoria: string;
-  modalidade: 'presencial' | 'remoto';
+  subcategoria: string;
+  descricao: string;
+  modalidade: string;
+  endereco?: string;
   status: OrderStatus;
-  valor: number;
-  data: string;
-  cidade: string;
-  isDisputa: boolean;
+  valorFinal?: number;
+  valorEstimado?: string;
+  createdAt: string;
+  cliente?: { nome: string };
+  tecnico?: { usuario?: { nome: string } };
 }
-
-// ─── Mock ─────────────────────────────────────────────────
-
-const MOCK_ORDERS: AdminOrder[] = [
-  { id: '1', numero: '#8829', cliente: 'Carlos Andrade', tecnico: 'Ricardo Silva', servico: 'Troca de Fonte', categoria: 'Computadores', modalidade: 'presencial', status: 'andamento', valor: 315, data: 'Hoje 14:00', cidade: 'São Paulo', isDisputa: false },
-  { id: '2', numero: '#8828', cliente: 'Beatriz Santos', tecnico: 'Ana Oliveira', servico: 'Configuração de Roteador', categoria: 'Redes', modalidade: 'presencial', status: 'disputa', valor: 120, data: 'Ontem', cidade: 'São Paulo', isDisputa: true },
-  { id: '3', numero: '#8820', cliente: 'Fernanda Lima', tecnico: 'Marcos Paulo', servico: 'Suporte Remoto', categoria: 'Suporte', modalidade: 'remoto', status: 'concluido', valor: 90, data: '10 Mai', cidade: 'São Paulo', isDisputa: false },
-  { id: '4', numero: '#8815', cliente: 'Rodrigo Pereira', tecnico: '–', servico: 'Limpeza de Notebook', categoria: 'Computadores', modalidade: 'presencial', status: 'cancelado', valor: 0, data: '08 Mai', cidade: 'Rio de Janeiro', isDisputa: false },
-  { id: '5', numero: '#8810', cliente: 'Paulo Nascimento', tecnico: 'Ricardo Silva', servico: 'Instalação de Câmeras', categoria: 'Segurança', modalidade: 'presencial', status: 'concluido', valor: 850, data: '05 Mai', cidade: 'Curitiba', isDisputa: false },
-  { id: '6', numero: '#8805', cliente: 'Ana Costa', tecnico: 'Ana Oliveira', servico: 'Formatação PC', categoria: 'Computadores', modalidade: 'presencial', status: 'solicitado', valor: 0, data: 'Hoje 11:30', cidade: 'São Paulo', isDisputa: false },
-];
 
 const STATUS_CFG: Record<OrderStatus, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
   solicitado: { label: 'Aguardando', color: '#E65100', bg: '#FFF3E0', icon: 'time-outline' },
@@ -44,24 +39,70 @@ const STATUS_CFG: Record<OrderStatus, { label: string; color: string; bg: string
   disputa:    { label: 'Disputa',    color: '#6A1B9A', bg: '#F3E5F5', icon: 'warning-outline' },
 };
 
-// ─── Tela principal ────────────────────────────────────────
-
 export function OrdersManagementScreen({ navigation }: any) {
-  const [orders, setOrders] = useState<AdminOrder[]>(MOCK_ORDERS);
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<OrderStatus | 'todos'>('todos');
   const [selected, setSelected] = useState<AdminOrder | null>(null);
 
+  async function load(silent = false) {
+    if (!silent) setLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('@technaveia:token');
+      const res = await fetch(`${BASE_URL}/orders`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setOrders(json.data ?? []);
+      }
+    } catch {} finally { setLoading(false); setRefreshing(false); }
+  }
+
+  useFocusEffect(useCallback(() => { load(); }, []));
+
   const filtered = orders.filter(o => {
     const matchQuery = !query ||
-      o.numero.includes(query) ||
-      o.cliente.toLowerCase().includes(query.toLowerCase()) ||
-      o.tecnico.toLowerCase().includes(query.toLowerCase());
+      o.numero.toLowerCase().includes(query.toLowerCase()) ||
+      o.cliente?.nome?.toLowerCase().includes(query.toLowerCase()) ||
+      o.tecnico?.usuario?.nome?.toLowerCase().includes(query.toLowerCase());
     const matchStatus = filterStatus === 'todos' || o.status === filterStatus;
     return matchQuery && matchStatus;
   });
 
-  const disputaCount = orders.filter(o => o.isDisputa).length;
+  const disputaCount = orders.filter(o => o.status === 'disputa').length;
+
+  async function handleCancelOrder(order: AdminOrder) {
+    Alert.alert('Cancelar pedido?', `Cancelar ${order.numero} administrativamente?`, [
+      { text: 'Voltar', style: 'cancel' },
+      {
+        text: 'Cancelar pedido', style: 'destructive',
+        onPress: async () => {
+          try {
+            const token = await AsyncStorage.getItem('@technaveia:token');
+            await fetch(`${BASE_URL}/orders/${order.id}/status`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ status: 'cancelado' }),
+            });
+            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'cancelado' } : o));
+            setSelected(null);
+            Alert.alert('Cancelado', 'Pedido cancelado com sucesso.');
+          } catch { Alert.alert('Erro', 'Não foi possível cancelar.'); }
+        },
+      },
+    ]);
+  }
+
+  function timeAgo(iso: string): string {
+    const diff = (Date.now() - new Date(iso).getTime()) / 3600000;
+    if (diff < 1) return 'Agora';
+    if (diff < 24) return `${Math.floor(diff)}h`;
+    if (diff < 48) return 'Ontem';
+    return new Date(iso).toLocaleDateString('pt-BR');
+  }
 
   const STATUS_FILTERS: { key: OrderStatus | 'todos'; label: string }[] = [
     { key: 'todos', label: 'Todos' },
@@ -72,156 +113,75 @@ export function OrdersManagementScreen({ navigation }: any) {
     { key: 'cancelado', label: 'Cancelados' },
   ];
 
-  function handleResolveDispute(order: AdminOrder, favor: 'cliente' | 'tecnico') {
-    const nome = favor === 'cliente' ? order.cliente : order.tecnico;
-    Alert.alert(
-      'Resolver disputa',
-      `Confirmar resolução em favor de ${nome}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar',
-          onPress: () => {
-            setOrders(prev => prev.map(o =>
-              o.id === order.id ? { ...o, status: 'concluido', isDisputa: false } : o
-            ));
-            setSelected(null);
-            Alert.alert('Resolvido!', `Disputa encerrada em favor de ${nome}.`);
-          },
-        },
-      ]
-    );
-  }
-
-  function handleCancelOrder(order: AdminOrder) {
-    Alert.alert('Cancelar pedido?', `Cancelar ${order.numero} administrativamente?`, [
-      { text: 'Voltar', style: 'cancel' },
-      {
-        text: 'Cancelar pedido', style: 'destructive',
-        onPress: () => {
-          setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'cancelado' } : o));
-          setSelected(null);
-        },
-      },
-    ]);
-  }
-
   return (
     <SafeAreaView style={s.safe}>
-
-      {/* Header */}
+      <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Gestão de Pedidos</Text>
-        {disputaCount > 0 && (
-          <View style={s.disputaBadge}>
-            <Text style={s.disputaBadgeText}>{disputaCount} disputa{disputaCount > 1 ? 's' : ''}</Text>
-          </View>
-        )}
+        <Text style={s.headerCount}>{orders.length}</Text>
       </View>
 
-      {/* KPIs rápidos */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.kpiScroll}>
-        {[
-          { label: 'Total hoje', value: orders.filter(o => o.data.includes('Hoje')).length.toString(), color: '#1565C0' },
-          { label: 'Em andamento', value: orders.filter(o => o.status === 'andamento').length.toString(), color: '#2E7D32' },
-          { label: 'Disputas abertas', value: disputaCount.toString(), color: '#6A1B9A' },
-          { label: 'Cancelados', value: orders.filter(o => o.status === 'cancelado').length.toString(), color: '#B71C1C' },
-        ].map(kpi => (
-          <View key={kpi.label} style={[s.kpiCard, { borderLeftColor: kpi.color }]}>
-            <Text style={[s.kpiValue, { color: kpi.color }]}>{kpi.value}</Text>
-            <Text style={s.kpiLabel}>{kpi.label}</Text>
-          </View>
-        ))}
-      </ScrollView>
-
-      {/* Busca */}
       <View style={s.searchWrap}>
         <Ionicons name="search" size={18} color="#999" />
-        <TextInput
-          style={s.searchInput}
-          placeholder="Buscar por nº, cliente ou técnico..."
-          value={query}
-          onChangeText={setQuery}
-          placeholderTextColor="#BBB"
-        />
-        {query.length > 0 && (
-          <TouchableOpacity onPress={() => setQuery('')}>
-            <Ionicons name="close-circle" size={18} color="#CCC" />
-          </TouchableOpacity>
-        )}
+        <TextInput style={s.searchInput} placeholder="Buscar nº, cliente ou técnico..." value={query} onChangeText={setQuery} placeholderTextColor="#BBB" />
+        {query.length > 0 && <TouchableOpacity onPress={() => setQuery('')}><Ionicons name="close-circle" size={18} color="#CCC" /></TouchableOpacity>}
       </View>
 
-      {/* Filtros */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filterScroll}>
         <View style={s.filters}>
           {STATUS_FILTERS.map(opt => (
-            <TouchableOpacity
-              key={opt.key}
-              style={[s.filterChip, filterStatus === opt.key && s.filterChipActive,
-                opt.key === 'disputa' && disputaCount > 0 && s.filterChipDisputa]}
-              onPress={() => setFilterStatus(opt.key)}
-            >
-              <Text style={[s.filterText, filterStatus === opt.key && s.filterTextActive,
-                opt.key === 'disputa' && disputaCount > 0 && { color: '#6A1B9A' }]}>
-                {opt.label}
-              </Text>
+            <TouchableOpacity key={opt.key} style={[s.filterChip, filterStatus === opt.key && s.filterChipActive]} onPress={() => setFilterStatus(opt.key)}>
+              <Text style={[s.filterText, filterStatus === opt.key && s.filterTextActive]}>{opt.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
 
-      {/* Lista */}
-      <FlatList
-        data={filtered}
-        keyExtractor={item => item.id}
-        contentContainerStyle={{ padding: 16 }}
-        ListEmptyComponent={
-          <View style={s.empty}>
-            <Ionicons name="document-outline" size={44} color="#DDD" />
-            <Text style={s.emptyText}>Nenhum pedido encontrado</Text>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const cfg = STATUS_CFG[item.status];
-          return (
-            <TouchableOpacity style={[s.orderCard, item.isDisputa && s.orderCardDisputa]} onPress={() => setSelected(item)}>
-              <View style={s.orderTop}>
-                <Text style={s.orderNumero}>{item.numero}</Text>
-                <View style={[s.badge, { backgroundColor: cfg.bg }]}>
-                  <Ionicons name={cfg.icon} size={10} color={cfg.color} />
-                  <Text style={[s.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
+      {loading ? (
+        <View style={s.center}><ActivityIndicator size="large" color="#2196F3" /></View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={item => item.id}
+          contentContainerStyle={filtered.length === 0 ? { flex: 1 } : { padding: 16 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} />}
+          ListEmptyComponent={<View style={s.center}><Ionicons name="document-outline" size={44} color="#DDD" /><Text style={s.emptyText}>Nenhum pedido encontrado</Text></View>}
+          renderItem={({ item }) => {
+            const cfg = STATUS_CFG[item.status];
+            return (
+              <TouchableOpacity style={s.orderCard} onPress={() => setSelected(item)}>
+                <View style={s.orderTop}>
+                  <Text style={s.orderNumero}>{item.numero}</Text>
+                  <View style={[s.badge, { backgroundColor: cfg.bg }]}>
+                    <Ionicons name={cfg.icon} size={10} color={cfg.color} />
+                    <Text style={[s.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={s.orderService}>{item.servico}</Text>
-              <View style={s.orderMeta}>
-                <View style={s.metaItem}>
-                  <Ionicons name="person-outline" size={12} color="#AAA" />
-                  <Text style={s.metaText}>{item.cliente}</Text>
+                <Text style={s.orderService}>{item.categoria} · {item.subcategoria}</Text>
+                <View style={s.orderMeta}>
+                  <View style={s.metaItem}>
+                    <Ionicons name="person-outline" size={12} color="#AAA" />
+                    <Text style={s.metaText}>{item.cliente?.nome ?? '–'}</Text>
+                  </View>
+                  <View style={s.metaItem}>
+                    <Ionicons name="construct-outline" size={12} color="#AAA" />
+                    <Text style={s.metaText}>{item.tecnico?.usuario?.nome ?? 'Sem técnico'}</Text>
+                  </View>
                 </View>
-                <View style={s.metaItem}>
-                  <Ionicons name="construct-outline" size={12} color="#AAA" />
-                  <Text style={s.metaText}>{item.tecnico}</Text>
+                <View style={s.orderFooter}>
+                  <Text style={s.orderData}>{timeAgo(item.createdAt)}</Text>
+                  <Text style={s.orderValor}>
+                    {item.valorFinal ? `R$ ${item.valorFinal.toFixed(2).replace('.', ',')}` : item.valorEstimado ?? '–'}
+                  </Text>
                 </View>
-              </View>
-              <View style={s.orderFooter}>
-                <Text style={s.orderData}>{item.data} · {item.cidade}</Text>
-                <Text style={s.orderValor}>
-                  {item.valor > 0 ? `R$ ${item.valor.toFixed(2).replace('.', ',')}` : '–'}
-                </Text>
-              </View>
-              {item.isDisputa && (
-                <View style={s.disputaTag}>
-                  <Ionicons name="warning" size={11} color="#6A1B9A" />
-                  <Text style={s.disputaTagText}>Requer intervenção</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        }}
-      />
+              </TouchableOpacity>
+            );
+          }}
+        />
+      )}
 
       {/* Modal detalhe */}
       <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
@@ -235,61 +195,34 @@ export function OrdersManagementScreen({ navigation }: any) {
                   <View style={m.header}>
                     <View>
                       <Text style={m.numero}>{selected.numero}</Text>
-                      <Text style={m.servico}>{selected.servico}</Text>
+                      <Text style={m.servico}>{selected.categoria} · {selected.subcategoria}</Text>
                     </View>
                     <TouchableOpacity onPress={() => setSelected(null)}>
                       <Ionicons name="close" size={22} color="#666" />
                     </TouchableOpacity>
                   </View>
-
                   <View style={[m.statusPill, { backgroundColor: cfg.bg }]}>
                     <Ionicons name={cfg.icon} size={14} color={cfg.color} />
                     <Text style={[m.statusText, { color: cfg.color }]}>{cfg.label}</Text>
                   </View>
-
                   {[
-                    { label: 'Cliente', val: selected.cliente },
-                    { label: 'Técnico', val: selected.tecnico },
-                    { label: 'Categoria', val: selected.categoria },
-                    { label: 'Modalidade', val: selected.modalidade === 'presencial' ? 'Presencial' : 'Remoto' },
-                    { label: 'Data', val: selected.data },
-                    { label: 'Cidade', val: selected.cidade },
-                    { label: 'Valor', val: selected.valor > 0 ? `R$ ${selected.valor.toFixed(2).replace('.', ',')}` : 'A definir' },
+                    { label: 'Cliente', val: selected.cliente?.nome ?? '–' },
+                    { label: 'Técnico', val: selected.tecnico?.usuario?.nome ?? 'Sem técnico' },
+                    { label: 'Descrição', val: selected.descricao },
+                    { label: 'Modalidade', val: selected.modalidade },
+                    { label: 'Endereço', val: selected.endereco ?? '–' },
+                    { label: 'Criado em', val: new Date(selected.createdAt).toLocaleString('pt-BR') },
+                    { label: 'Valor', val: selected.valorFinal ? `R$ ${selected.valorFinal.toFixed(2).replace('.', ',')}` : 'A definir' },
                   ].map(row => (
                     <View key={row.label} style={m.infoRow}>
                       <Text style={m.infoLabel}>{row.label}</Text>
                       <Text style={m.infoVal}>{row.val}</Text>
                     </View>
                   ))}
-
-                  <Text style={m.actionsTitle}>Intervenções administrativas</Text>
-
-                  {selected.isDisputa && (
-                    <>
-                      <TouchableOpacity
-                        style={[m.actionBtn, { backgroundColor: '#E3F2FD' }]}
-                        onPress={() => handleResolveDispute(selected, 'cliente')}
-                      >
-                        <Ionicons name="person-outline" size={18} color="#1565C0" />
-                        <Text style={[m.actionText, { color: '#1565C0' }]}>Resolver em favor do cliente</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[m.actionBtn, { backgroundColor: '#E8F5E9' }]}
-                        onPress={() => handleResolveDispute(selected, 'tecnico')}
-                      >
-                        <Ionicons name="construct-outline" size={18} color="#2E7D32" />
-                        <Text style={[m.actionText, { color: '#2E7D32' }]}>Resolver em favor do técnico</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-
                   {selected.status !== 'cancelado' && selected.status !== 'concluido' && (
-                    <TouchableOpacity
-                      style={[m.actionBtn, { backgroundColor: '#FFEBEE' }]}
-                      onPress={() => handleCancelOrder(selected)}
-                    >
+                    <TouchableOpacity style={m.cancelBtn} onPress={() => handleCancelOrder(selected)}>
                       <Ionicons name="close-circle-outline" size={18} color="#B71C1C" />
-                      <Text style={[m.actionText, { color: '#B71C1C' }]}>Cancelar pedido administrativamente</Text>
+                      <Text style={m.cancelBtnText}>Cancelar pedido</Text>
                     </TouchableOpacity>
                   )}
                 </ScrollView>
@@ -298,53 +231,26 @@ export function OrdersManagementScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
-
     </SafeAreaView>
   );
 }
 
-// ─── Estilos ───────────────────────────────────────────────
-
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F0F2F5' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#1a1a1a', padding: 20, paddingTop: 16,
-  },
-  backBtn: { width: 36, height: 36, justifyContent: 'center' },
+  safe: { flex: 1, backgroundColor: '#F0F2F5', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#1a1a1a', padding: 20 },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#FFF' },
-  disputaBadge: { backgroundColor: '#6A1B9A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  disputaBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
-  kpiScroll: { paddingHorizontal: 12, paddingVertical: 12, maxHeight: 90 },
-  kpiCard: {
-    backgroundColor: '#FFF', borderRadius: 12, padding: 12,
-    marginHorizontal: 4, borderLeftWidth: 4, minWidth: 110,
-  },
-  kpiValue: { fontSize: 22, fontWeight: '700' },
-  kpiLabel: { fontSize: 11, color: '#888', marginTop: 2 },
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#FFF', marginHorizontal: 16, marginBottom: 8,
-    borderRadius: 14, paddingHorizontal: 14, height: 44,
-  },
+  headerCount: { fontSize: 12, color: '#AAA' },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF', margin: 16, marginBottom: 8, borderRadius: 14, paddingHorizontal: 14, height: 44 },
   searchInput: { flex: 1, fontSize: 14, color: '#222' },
-  filterScroll: { maxHeight: 50 },
-  filters: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
-  filterChip: {
-    paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20,
-    backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEE',
-  },
+  filterScroll: { marginBottom: 8 },
+  filters: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
+  filterChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEE', height: 36, justifyContent: 'center' },
   filterChipActive: { backgroundColor: '#1a1a1a', borderColor: '#1a1a1a' },
-  filterChipDisputa: { borderColor: '#CE93D8', backgroundColor: '#F3E5F5' },
   filterText: { fontSize: 12, fontWeight: '600', color: '#666' },
   filterTextActive: { color: '#FFF' },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyText: { fontSize: 15, color: '#BBB' },
-  orderCard: {
-    backgroundColor: '#FFF', borderRadius: 16, padding: 14, marginBottom: 10,
-    elevation: 1, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6,
-  },
-  orderCardDisputa: { borderWidth: 1.5, borderColor: '#CE93D8' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
+  emptyText: { fontSize: 15, color: '#BBB', marginTop: 10 },
+  orderCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 14, marginBottom: 10, elevation: 1 },
   orderTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   orderNumero: { fontSize: 12, fontWeight: '700', color: '#888' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7 },
@@ -356,36 +262,20 @@ const s = StyleSheet.create({
   orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   orderData: { fontSize: 12, color: '#AAA' },
   orderValor: { fontSize: 14, fontWeight: '700', color: '#222' },
-  disputaTag: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: '#F3E5F5', padding: 6, borderRadius: 8, marginTop: 10,
-  },
-  disputaTagText: { fontSize: 11, color: '#6A1B9A', fontWeight: '700' },
 });
 
 const m = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: '#FFF', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 24, paddingTop: 12, maxHeight: '88%',
-  },
+  sheet: { backgroundColor: '#FFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12, maxHeight: '85%' },
   handle: { width: 40, height: 4, backgroundColor: '#DDD', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   numero: { fontSize: 12, fontWeight: '700', color: '#AAA' },
   servico: { fontSize: 18, fontWeight: '700', color: '#222', marginTop: 2 },
-  statusPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 20, marginBottom: 16,
-  },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginBottom: 16 },
   statusText: { fontSize: 12, fontWeight: '700' },
-  infoRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
-  },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
   infoLabel: { fontSize: 13, color: '#AAA' },
-  infoVal: { fontSize: 13, color: '#333', fontWeight: '600' },
-  actionsTitle: { fontSize: 12, fontWeight: '700', color: '#AAA', textTransform: 'uppercase', marginTop: 20, marginBottom: 10 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, marginBottom: 8 },
-  actionText: { fontSize: 14, fontWeight: '700' },
+  infoVal: { fontSize: 13, color: '#333', fontWeight: '500', flex: 1, textAlign: 'right' },
+  cancelBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, backgroundColor: '#FFEBEE', marginTop: 20 },
+  cancelBtnText: { color: '#B71C1C', fontWeight: '700', fontSize: 14 },
 });

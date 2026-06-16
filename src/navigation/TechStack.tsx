@@ -15,6 +15,7 @@ import { WithdrawScreen }       from '../screens/tech/WithdrawScreen';
 import { TechReviewsScreen }    from '../screens/tech/TechReviewsScreen';
 import { TechPublicProfileEdit } from '../screens/profile/TechPublicProfileEdit';
 import { TechAccountScreen }    from '../screens/profile/TechAccountScreen';
+import { EditProfileScreen }    from '../screens/profile/EditProfileScreen';
 import { NotificationsScreen }  from '../screens/notificacoes/NotificationsScreen';
 import { ChatScreen }           from '../screens/chat/ChatScreen';
 import { SettingsScreen }       from '../screens/profile/SettingsScreen';
@@ -51,6 +52,7 @@ export function TechStack() {
 
       {/* ── Perfil e conta ── */}
       <Stack.Screen name="TechAccount"     component={TechAccountScreen} />
+      <Stack.Screen name="EditProfile"     component={EditProfileScreen} />
       <Stack.Screen name="Reviews"         component={TechReviewsScreen} />
       <Stack.Screen name="EditPublicProfile" component={TechPublicProfileEdit} />
       <Stack.Screen name="Settings"        component={SettingsScreen} />

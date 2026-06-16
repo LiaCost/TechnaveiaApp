@@ -81,6 +81,7 @@ export interface Order {
   clienteId: string;
   tecnicoId?: string;
   tecnico?: Technician;
+  cliente?: { nome: string; foto?: string };
   categoria: string;
   subcategoria: string;
   descricao: string;
@@ -141,6 +142,7 @@ export interface Conversation {
   ultimaMensagem?: Message;
   naoLidas: number;
   pedidoId?: string;
+  encerrado?: boolean;
   updatedAt: string;
 }
 
@@ -222,7 +224,21 @@ async function httpRequest<T>(
       throw new ApiError(res.status, err.message ?? `Erro ${res.status}`, err);
     }
 
-    return res.json() as Promise<T>;
+    const json = await res.json();
+
+    // Unwrap envelope { success, data, ... }
+    // Caso 1: envelope com campo "data" explícito → retorna data
+    // Caso 2: envelope com "success" mas sem "data" (ex: auth) → retorna o objeto inteiro sem "success"
+    if (json !== null && typeof json === 'object' && 'success' in json) {
+      if ('data' in json) {
+        return json.data as T;
+      }
+      // Remove campo "success" e retorna o resto (token, userType, user, etc.)
+      const { success, ...rest } = json;
+      return rest as T;
+    }
+
+    return json as T;
   } catch (error) {
     clearTimeout(timeout);
     if ((error as Error).name === 'AbortError') {
@@ -271,6 +287,32 @@ const MOCK_MESSAGES: Message[] = [
   { id: 'm3', conversaId: 'c1', remetenteId: 't1', tipo: 'budget', conteudo: 'Orçamento enviado: R$ 315,00', metadados: { budgetId: 'b1', total: 315 }, lida: false, createdAt: new Date(Date.now() - 600000).toISOString() },
 ];
 
+// ─── Normalização de userType (backend retorna pt-BR) ─────
+
+type RawUserType = 'client' | 'tech' | 'admin' | 'cliente' | 'tecnico' | 'administrador';
+
+function normalizeUserType(raw: RawUserType): 'client' | 'tech' | 'admin' {
+  if (raw === 'cliente')        return 'client';
+  if (raw === 'tecnico')        return 'tech';
+  if (raw === 'administrador')  return 'admin';
+  return raw as 'client' | 'tech' | 'admin';
+}
+
+interface RawAuthResponse {
+  token: string;
+  refreshToken?: string;
+  userType: RawUserType;
+  user: User & { role?: string };
+}
+
+function normalizeAuthResponse(raw: RawAuthResponse) {
+  return {
+    token: raw.token,
+    userType: normalizeUserType(raw.userType),
+    user: raw.user,
+  };
+}
+
 // ─── Serviços de autenticação ──────────────────────────────
 
 export const authService = {
@@ -285,15 +327,45 @@ export const authService = {
       }
       throw new ApiError(401, 'E-mail ou senha incorretos');
     }
-    return post<{ token: string; userType: 'client' | 'tech' | 'admin'; user: User }>('/auth/login', { email, senha: password });
+    const raw = await post<RawAuthResponse>('/auth/login', { email, senha: password });
+    return normalizeAuthResponse(raw);
   },
 
-  async register(data: { nome: string; cpf: string; email: string; telefone: string; senha: string; endereco: object }) {
+  async register(data: {
+    nome: string;
+    cpf: string;
+    email: string;
+    telefone: string;
+    senha: string;
+    endereco: object;
+    tipo?: 'client' | 'tech';
+    especialidades?: string[];
+    raioAtendimento?: number;
+    modalidade?: string;
+    whatsapp?: string;
+    banco?: string;
+    tipoConta?: string;
+    chavePix?: string;
+    agencia?: string;
+    conta?: string;
+  }) {
     if (USE_MOCK) {
       await delay(1200);
-      return { token: 'mock_token_new', userType: 'client' as const, user: { id: Date.now().toString(), nome: data.nome, email: data.email, role: 'client' as const, createdAt: new Date().toISOString() } };
+      const userType = data.tipo === 'tech' ? 'tech' as const : 'client' as const;
+      return {
+        token: `mock_token_${userType}_new`,
+        userType,
+        user: {
+          id: Date.now().toString(),
+          nome: data.nome,
+          email: data.email,
+          role: userType,
+          createdAt: new Date().toISOString(),
+        },
+      };
     }
-    return post<{ token: string; userType: 'client' | 'tech' | 'admin'; user: User }>('/auth/register', data);
+    const raw = await post<RawAuthResponse>('/auth/register', data);
+    return normalizeAuthResponse(raw);
   },
 
   async forgotPassword(email: string) {
@@ -325,7 +397,26 @@ export const technicianService = {
       return MOCK_TECHNICIANS;
     }
     const qs = new URLSearchParams(params as Record<string, string>).toString();
-    return get<Technician[]>(`/technicians?${qs}`);
+    const raw = await get<any[]>(`/technicians?${qs}`);
+    // Normaliza o shape do backend: { id, usuario:{nome,foto}, especialidades:[{categoria}], ... }
+    return raw.map(t => ({
+      id: t.id,
+      userId: t.usuarioId,
+      nome: t.usuario?.nome ?? t.nome ?? '',
+      email: t.usuario?.email ?? t.email ?? '',
+      foto: t.usuario?.foto ?? t.foto ?? undefined,
+      especialidades: (t.especialidades ?? []).map((e: any) =>
+        typeof e === 'string' ? e : e.categoria
+      ),
+      avaliacao: t.avaliacao ?? 0,
+      totalAvaliacoes: t.totalAvaliacoes ?? 0,
+      distancia: t.distancia ?? undefined,
+      precoMedio: t.precoMedio ?? undefined,
+      verificado: t.verificado ?? false,
+      bio: t.bio ?? undefined,
+      modalidade: t.modalidade ?? 'presencial',
+      status: t.status ?? 'aprovado',
+    } as Technician));
   },
 
   async getById(id: string) {
@@ -350,6 +441,51 @@ export const technicianService = {
   },
 };
 
+// ─── Normalização de pedido (backend retorna tecnico aninhado) ────
+
+function normalizeOrder(raw: any): Order {
+  const tecnico = raw.tecnico ? {
+    id: raw.tecnico.id,
+    userId: raw.tecnico.usuarioId ?? raw.tecnico.id,
+    nome: raw.tecnico.usuario?.nome ?? raw.tecnico.nome ?? '',
+    email: raw.tecnico.usuario?.email ?? raw.tecnico.email ?? '',
+    foto: raw.tecnico.usuario?.foto ?? raw.tecnico.foto ?? undefined,
+    especialidades: (raw.tecnico.especialidades ?? []).map((e: any) =>
+      typeof e === 'string' ? e : e.categoria
+    ),
+    avaliacao: raw.tecnico.avaliacao ?? 0,
+    totalAvaliacoes: raw.tecnico.totalAvaliacoes ?? 0,
+    verificado: raw.tecnico.verificado ?? false,
+    modalidade: raw.tecnico.modalidade ?? 'presencial',
+    status: raw.tecnico.status ?? 'aprovado',
+  } as Technician : undefined;
+
+  return {
+    id: raw.id,
+    numero: raw.numero,
+    clienteId: raw.clienteId,
+    tecnicoId: raw.tecnicoId ?? undefined,
+    tecnico,
+    cliente: raw.cliente ?? undefined,
+    categoria: raw.categoria,
+    subcategoria: raw.subcategoria,
+    descricao: raw.descricao,
+    modalidade: raw.modalidade,
+    endereco: raw.endereco ?? undefined,
+    dataAgendada: raw.dataAgendada
+      ? new Date(raw.dataAgendada).toLocaleDateString('pt-BR')
+      : undefined,
+    horaAgendada: raw.dataAgendada
+      ? new Date(raw.dataAgendada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      : undefined,
+    status: raw.status,
+    valorEstimado: raw.valorEstimado ?? undefined,
+    valorFinal: raw.valorFinal ?? undefined,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+  };
+}
+
 // ─── Serviços de pedidos ───────────────────────────────────
 
 export const orderService = {
@@ -358,7 +494,8 @@ export const orderService = {
       await delay();
       return status ? MOCK_ORDERS.filter(o => o.status === status) : MOCK_ORDERS;
     }
-    return get<Order[]>(`/orders${status ? `?status=${status}` : ''}`);
+    const raw = await get<any[]>(`/orders${status ? `?status=${status}` : ''}`);
+    return raw.map(normalizeOrder);
   },
 
   async getById(id: string) {
@@ -368,7 +505,8 @@ export const orderService = {
       if (!order) throw new ApiError(404, 'Pedido não encontrado');
       return { ...order, tecnico: MOCK_TECHNICIANS.find(t => t.id === order.tecnicoId) };
     }
-    return get<Order>(`/orders/${id}`);
+    const raw = await get<any>(`/orders/${id}`);
+    return normalizeOrder(raw);
   },
 
   async create(data: Partial<Order>) {
@@ -395,7 +533,45 @@ export const orderService = {
 export const chatService = {
   async listConversations() {
     if (USE_MOCK) { await delay(); return MOCK_CONVERSATIONS; }
-    return get<Conversation[]>('/conversations');
+    const raw = await get<any[]>('/conversations');
+    // Backend retorna: { id, pedidoId, participantes:[{usuario:{id,nome,foto}}], mensagens:[última], updatedAt }
+    // Frontend espera: { id, outroUsuario:{id,nome,foto,online}, ultimaMensagem, naoLidas, pedidoId, updatedAt }
+    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+    const sessionRaw = await AsyncStorage.getItem('@technaveia:session');
+    const myId = sessionRaw ? JSON.parse(sessionRaw).user?.id : null;
+
+    return raw.map((c: any): Conversation => {
+      const participantes = c.participantes ?? [];
+      const outro = participantes.find((p: any) => p.usuario?.id !== myId)?.usuario
+        ?? participantes[0]?.usuario
+        ?? { id: '', nome: 'Usuário', foto: null };
+
+      const ultimaMensagem = c.mensagens?.[0] ?? null;
+
+      return {
+        id: c.id,
+        participantes: participantes.map((p: any) => p.usuarioId ?? p.usuario?.id),
+        outroUsuario: {
+          id: outro.id,
+          nome: outro.nome,
+          foto: outro.foto ?? undefined,
+          online: false, // sem websocket ainda
+        },
+        ultimaMensagem: ultimaMensagem ? {
+          id: ultimaMensagem.id,
+          conversaId: c.id,
+          remetenteId: ultimaMensagem.remetenteId,
+          tipo: ultimaMensagem.tipo,
+          conteudo: ultimaMensagem.conteudo,
+          lida: ultimaMensagem.lida,
+          createdAt: ultimaMensagem.createdAt,
+        } : undefined,
+        naoLidas: 0,
+        pedidoId: c.pedidoId ?? undefined,
+        encerrado: c.pedido?.status === 'concluido' || c.pedido?.status === 'cancelado',
+        updatedAt: c.updatedAt,
+      };
+    });
   },
 
   async getMessages(conversaId: string) {

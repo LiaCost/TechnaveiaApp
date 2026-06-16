@@ -1,12 +1,27 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
 
-export function HomeHeader({ name, location }: { name: string, location: string }) {
+interface HomeHeaderProps {
+  name: string;
+  location: string;
+  foto?: string;
+  onNotificationPress?: () => void;
+  notificationCount?: number;
+}
+
+export function HomeHeader({ name, location, foto, onNotificationPress, notificationCount = 0 }: HomeHeaderProps) {
   return (
     <View style={styles.container}>
       <View style={styles.userRow}>
+        <View style={styles.avatarSmall}>
+          {foto ? (
+            <Image source={{ uri: foto }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.avatarInitials}>{name.charAt(0).toUpperCase()}</Text>
+          )}
+        </View>
         <View style={styles.userInfo}>
           <Text style={styles.greeting}>Olá, {name} 👋</Text>
           <TouchableOpacity style={styles.locationRow}>
@@ -17,12 +32,13 @@ export function HomeHeader({ name, location }: { name: string, location: string 
         </View>
         
         <View style={styles.actions}>
-          {/* Ícone de Chat removido daqui para evitar duplicidade com o Menu Inferior */}
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity style={styles.iconBtn} onPress={onNotificationPress}>
             <Ionicons name="notifications-outline" size={24} color={colors.dark1} />
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>2</Text>
-            </View>
+            {notificationCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -41,6 +57,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', 
     alignItems: 'center' 
   },
+  avatarSmall: {
+    width: 46, height: 46, borderRadius: 23,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center', alignItems: 'center',
+    marginRight: 12, overflow: 'hidden',
+  },
+  avatarImage: { width: 46, height: 46, borderRadius: 23 },
+  avatarInitials: { fontSize: 18, fontWeight: '700', color: colors.primary },
   userInfo: { 
     flex: 1 
   },

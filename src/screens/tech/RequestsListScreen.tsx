@@ -1,86 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, FlatList, Modal, Alert, TextInput, StatusBar,
+  TouchableOpacity, FlatList, Modal, Alert, StatusBar, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme';
+import { orderService, Order, ApiError } from '../../services/api';
 
 // ─── Tipos ────────────────────────────────────────────────
 
 type RequestTab = 'Novas' | 'Em andamento' | 'Concluídas' | 'Canceladas';
-type RequestStatus = 'nova' | 'andamento' | 'concluida' | 'cancelada';
 
-interface ServiceRequest {
-  id: string;
-  clientName: string;
-  clientRating: number;
-  service: string;
-  category: string;
-  description: string;
-  modalidade: 'presencial' | 'remoto';
-  address: string;
-  distance: string;
-  date: string;
-  time: string;
-  isUrgent: boolean;
-  estimatedPrice: string;
-  status: RequestStatus;
-  photos: number;
-  receivedAgo: string;
-}
-
-// ─── Mock ─────────────────────────────────────────────────
-
-const MOCK_REQUESTS: ServiceRequest[] = [
-  {
-    id: '1', clientName: 'João Pedro', clientRating: 4.8,
-    service: 'Formatação de PC', category: 'Computadores',
-    description: 'Notebook muito lento, suspeito de vírus. Preciso de formatação completa com backup dos arquivos antes.',
-    modalidade: 'presencial', address: 'Av. Paulista, 1000 – Bela Vista', distance: '2.3km',
-    date: 'Hoje', time: '14:00', isUrgent: false,
-    estimatedPrice: 'R$ 150–200', status: 'nova', photos: 2, receivedAgo: '5 min',
-  },
-  {
-    id: '2', clientName: 'Carla Mendes', clientRating: 5.0,
-    service: 'Suporte Remoto', category: 'Suporte Remoto',
-    description: 'Erro ao abrir o Word e Excel. Acontece desde a última atualização do Windows.',
-    modalidade: 'remoto', address: 'Remoto (AnyDesk)', distance: '–',
-    date: 'Hoje', time: '16:00', isUrgent: true,
-    estimatedPrice: 'R$ 80–120', status: 'nova', photos: 0, receivedAgo: '12 min',
-  },
-  {
-    id: '3', clientName: 'Roberto Alves', clientRating: 4.5,
-    service: 'Configuração de Roteador', category: 'Redes',
-    description: 'Internet caindo toda hora. Router novo, preciso de configuração e troca de canal.',
-    modalidade: 'presencial', address: 'R. Augusta, 500 – Consolação', distance: '4.1km',
-    date: 'Amanhã', time: '10:00', isUrgent: false,
-    estimatedPrice: 'R$ 100–150', status: 'nova', photos: 1, receivedAgo: '1h',
-  },
-  {
-    id: '4', clientName: 'Ana Lima', clientRating: 4.9,
-    service: 'Troca de Tela Notebook', category: 'Computadores',
-    description: 'Tela trincada após queda. Modelo Dell Inspiron 15.',
-    modalidade: 'presencial', address: 'R. da Consolação, 200', distance: '3.5km',
-    date: 'Hoje', time: '09:30', isUrgent: false,
-    estimatedPrice: 'R$ 250–400', status: 'andamento', photos: 3, receivedAgo: '3h',
-  },
-  {
-    id: '5', clientName: 'Marcos Souza', clientRating: 4.7,
-    service: 'Instalação de Câmeras CFTV', category: 'Segurança',
-    description: 'Instalação de 4 câmeras externas + DVR em residência.',
-    modalidade: 'presencial', address: 'Al. Santos, 800', distance: '5.0km',
-    date: '10 Mai', time: '09:00', isUrgent: false,
-    estimatedPrice: 'R$ 400–600', status: 'concluida', photos: 0, receivedAgo: '2 dias',
-  },
-];
-
-const TAB_MAP: Record<RequestTab, RequestStatus> = {
-  'Novas': 'nova',
-  'Em andamento': 'andamento',
-  'Concluídas': 'concluida',
-  'Canceladas': 'cancelada',
+const TAB_STATUS: Record<RequestTab, Order['status']> = {
+  'Novas':         'solicitado',
+  'Em andamento':  'andamento',
+  'Concluídas':    'concluido',
+  'Canceladas':    'cancelado',
 };
 
 const REJECT_REASONS = [
@@ -93,78 +30,49 @@ const REJECT_REASONS = [
 
 // ─── Subcomponentes ───────────────────────────────────────
 
-function UrgentBadge() {
-  return (
-    <View style={ub.badge}>
-      <Ionicons name="flash" size={11} color="#FFF" />
-      <Text style={ub.text}>URGENTE</Text>
-    </View>
-  );
-}
+function RequestCard({ req, onPress }: { req: Order; onPress: () => void }) {
+  function timeAgo(iso: string) {
+    const diff = (Date.now() - new Date(iso).getTime()) / 60000;
+    if (diff < 60) return `${Math.floor(diff)} min`;
+    if (diff < 1440) return `${Math.floor(diff / 60)}h`;
+    return `${Math.floor(diff / 1440)} dias`;
+  }
 
-const ub = StyleSheet.create({
-  badge: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: '#FF6B00', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
-  },
-  text: { color: '#FFF', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
-});
-
-function RequestCard({ req, onPress }: { req: ServiceRequest; onPress: () => void }) {
   return (
     <TouchableOpacity style={rc.card} onPress={onPress}>
-      {/* Topo */}
       <View style={rc.top}>
         <View style={rc.catBadge}>
-          <Text style={rc.catText}>{req.category}</Text>
+          <Text style={rc.catText}>{req.categoria}</Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {req.isUrgent && <UrgentBadge />}
-          <Text style={rc.time}>{req.receivedAgo}</Text>
-        </View>
+        <Text style={rc.time}>{timeAgo(req.createdAt)}</Text>
       </View>
 
-      {/* Serviço */}
-      <Text style={rc.service}>{req.service}</Text>
-      <Text style={rc.desc} numberOfLines={2}>{req.description}</Text>
+      <Text style={rc.service}>{req.subcategoria}</Text>
+      <Text style={rc.desc} numberOfLines={2}>{req.descricao}</Text>
 
-      {/* Meta */}
       <View style={rc.meta}>
         <View style={rc.metaItem}>
-          <Ionicons name={req.modalidade === 'presencial' ? 'location-outline' : 'laptop-outline'} size={14} color="#888" />
+          <Ionicons
+            name={req.modalidade === 'presencial' ? 'location-outline' : 'laptop-outline'}
+            size={14} color="#888"
+          />
           <Text style={rc.metaText} numberOfLines={1}>
-            {req.modalidade === 'presencial' ? `${req.address} · ${req.distance}` : 'Remoto'}
+            {req.modalidade === 'presencial' ? (req.endereco ?? 'Endereço a confirmar') : 'Remoto'}
           </Text>
         </View>
-        <View style={rc.metaItem}>
-          <Ionicons name="calendar-outline" size={14} color="#888" />
-          <Text style={rc.metaText}>{req.date} às {req.time}</Text>
-        </View>
+        {req.dataAgendada && (
+          <View style={rc.metaItem}>
+            <Ionicons name="calendar-outline" size={14} color="#888" />
+            <Text style={rc.metaText}>
+              {req.dataAgendada}{req.horaAgendada ? ` às ${req.horaAgendada}` : ''}
+            </Text>
+          </View>
+        )}
       </View>
 
-      {/* Rodapé */}
       <View style={rc.footer}>
-        <View style={rc.clientRow}>
-          <View style={rc.clientAvatar}>
-            <Text style={rc.clientInitials}>{req.clientName.split(' ').map(n => n[0]).join('')}</Text>
-          </View>
-          <View>
-            <Text style={rc.clientName}>{req.clientName}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-              <Ionicons name="star" size={11} color="#FFC107" />
-              <Text style={rc.clientRating}>{req.clientRating}</Text>
-            </View>
-          </View>
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={rc.price}>{req.estimatedPrice}</Text>
-          {req.photos > 0 && (
-            <View style={rc.photoBadge}>
-              <Ionicons name="images-outline" size={11} color="#888" />
-              <Text style={rc.photoText}>{req.photos} fotos</Text>
-            </View>
-          )}
-        </View>
+        <Text style={rc.orderId}>Pedido {req.numero}</Text>
+        <Text style={rc.price}>{req.valorEstimado ?? 'A combinar'}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -185,60 +93,147 @@ const rc = StyleSheet.create({
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { fontSize: 13, color: '#555', flex: 1 },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  orderId: { fontSize: 12, color: '#AAA', fontWeight: '500' },
+  price: { fontSize: 15, fontWeight: '700', color: colors.dark1 },
+  // legado (não usados mas mantidos para evitar erros de referência)
   clientRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  clientAvatar: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: colors.primary + '15', justifyContent: 'center', alignItems: 'center',
-  },
+  clientAvatar: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.primary + '15', justifyContent: 'center', alignItems: 'center' },
   clientInitials: { fontSize: 12, fontWeight: '700', color: colors.primary },
   clientName: { fontSize: 13, fontWeight: '600', color: '#333' },
   clientRating: { fontSize: 11, color: '#888' },
-  price: { fontSize: 15, fontWeight: '700', color: colors.dark1 },
   photoBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 },
   photoText: { fontSize: 11, color: '#888' },
 });
 
-// ─── Tela principal ────────────────────────────────────────
-
-export function RequestsListScreen({ navigation }: any) {
+export function RequestsListScreen({ navigation, route }: any) {
   const [activeTab, setActiveTab] = useState<RequestTab>('Novas');
-  const [selectedReq, setSelectedReq] = useState<ServiceRequest | null>(null);
-  const [showReject, setShowReject] = useState(false);
+  const [selectedReq, setSelectedReq] = useState<Order | null>(null);
+  const [showReject, setShowReject]   = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [requests, setRequests] = useState(MOCK_REQUESTS);
+  const [orders, setOrders]           = useState<Order[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [refreshing, setRefreshing]   = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const filtered = requests.filter(r => r.status === TAB_MAP[activeTab]);
-  const newCount = requests.filter(r => r.status === 'nova').length;
+  const openOrderId = route?.params?.openOrderId;
 
-  function handleAccept(req: ServiceRequest) {
+  async function load(silent = false) {
+    if (!silent) setLoading(true);
+    try {
+      // O back retorna pedidos atribuídos ao técnico autenticado
+      const data = await orderService.list();
+      setOrders(data);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Não foi possível carregar as solicitações.';
+      Alert.alert('Erro', msg);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useFocusEffect(useCallback(() => { load(); }, []));
+
+  // Abre automaticamente o modal se veio com openOrderId
+  useEffect(() => {
+    if (openOrderId && orders.length > 0 && !selectedReq) {
+      const found = orders.find(o => o.id === openOrderId);
+      if (found) setSelectedReq(found);
+    }
+  }, [openOrderId, orders]);
+
+  function onRefresh() { setRefreshing(true); load(true); }
+
+  const filtered = orders.filter(o => o.status === TAB_STATUS[activeTab]);
+  const novasCount = orders.filter(o => o.status === 'solicitado').length;
+
+  async function handleAccept(req: Order) {
     Alert.alert(
       'Aceitar solicitação?',
-      `Confirmar atendimento para ${req.clientName} em ${req.date} às ${req.time}?`,
+      `Confirmar atendimento para o pedido ${req.numero}?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Aceitar', onPress: () => {
-            setRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'andamento' } : r));
-            setSelectedReq(null);
-            Alert.alert('Aceito!', 'O cliente foi notificado. Você pode acompanhar em "Em andamento".');
+          text: 'Aceitar',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              // PATCH /orders/:id/accept
+              const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+              const token = await AsyncStorage.getItem('@technaveia:token');
+              const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+              await fetch(`${BASE_URL}/orders/${req.id}/accept`, {
+                method: 'PATCH',
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              setSelectedReq(null);
+              load(true);
+              Alert.alert('Aceito!', 'O cliente foi notificado.');
+            } catch {
+              Alert.alert('Erro', 'Não foi possível aceitar o pedido.');
+            } finally {
+              setActionLoading(false);
+            }
           },
         },
       ]
     );
   }
 
-  function handleReject() {
-    if (!rejectReason) { Alert.alert('Selecione o motivo'); return; }
-    setRequests(prev => prev.map(r => r.id === selectedReq?.id ? { ...r, status: 'cancelada' } : r));
-    setShowReject(false);
-    setSelectedReq(null);
-    setRejectReason('');
-    Alert.alert('Recusado', 'Solicitação recusada. O cliente será notificado.');
+  async function handleReject() {
+    if (!rejectReason || !selectedReq) { Alert.alert('Selecione o motivo'); return; }
+    setActionLoading(true);
+    try {
+      await orderService.cancel(selectedReq.id);
+      setShowReject(false);
+      setSelectedReq(null);
+      setRejectReason('');
+      load(true);
+      Alert.alert('Recusado', 'Solicitação recusada. O cliente será notificado.');
+    } catch {
+      Alert.alert('Erro', 'Não foi possível recusar o pedido.');
+    } finally {
+      setActionLoading(false);
+    }
   }
 
-  function handleSendBudget(req: ServiceRequest) {
+  function handleSendBudget(req: Order) {
     setSelectedReq(null);
-    navigation.navigate('CreateBudget', { requestId: req.id });
+    navigation.navigate('CreateBudget', { pedidoId: req.id });
+  }
+
+  async function handleChangeStatus(req: Order, novoStatus: 'andamento' | 'concluido') {
+    const labels: Record<string, string> = { andamento: 'iniciar', concluido: 'concluir' };
+    Alert.alert(
+      `${novoStatus === 'andamento' ? 'Iniciar' : 'Concluir'} serviço?`,
+      `Confirma ${labels[novoStatus]} o pedido ${req.numero}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+              const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+              const token = await AsyncStorage.getItem('@technaveia:token');
+              await fetch(`${BASE_URL}/orders/${req.id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ status: novoStatus }),
+              });
+              setSelectedReq(null);
+              load(true);
+              Alert.alert('Atualizado!', `Pedido ${novoStatus === 'andamento' ? 'iniciado' : 'concluído'} com sucesso.`);
+            } catch {
+              Alert.alert('Erro', 'Não foi possível atualizar o status.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
   }
 
   const TABS: RequestTab[] = ['Novas', 'Em andamento', 'Concluídas', 'Canceladas'];
@@ -247,21 +242,21 @@ export function RequestsListScreen({ navigation }: any) {
     <SafeAreaView style={s.safe} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={s.header}>
         <Text style={s.headerTitle}>Solicitações</Text>
-        {newCount > 0 && (
+        {novasCount > 0 && (
           <View style={s.newBadge}>
-            <Text style={s.newBadgeText}>{newCount} nova{newCount > 1 ? 's' : ''}</Text>
+            <Text style={s.newBadgeText}>{novasCount} nova{novasCount > 1 ? 's' : ''}</Text>
           </View>
         )}
       </View>
 
-      {/* ── Tabs ── */}
+      {/* Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabsScroll}>
         <View style={s.tabs}>
           {TABS.map(tab => {
-            const count = requests.filter(r => r.status === TAB_MAP[tab]).length;
+            const count = orders.filter(o => o.status === TAB_STATUS[tab]).length;
             return (
               <TouchableOpacity
                 key={tab}
@@ -280,8 +275,12 @@ export function RequestsListScreen({ navigation }: any) {
         </View>
       </ScrollView>
 
-      {/* ── Lista ── */}
-      {filtered.length === 0 ? (
+      {/* Lista */}
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : filtered.length === 0 ? (
         <View style={s.empty}>
           <Ionicons name="checkmark-done-circle-outline" size={56} color="#DDD" />
           <Text style={s.emptyTitle}>Nada por aqui</Text>
@@ -296,13 +295,14 @@ export function RequestsListScreen({ navigation }: any) {
           data={filtered}
           keyExtractor={item => item.id}
           contentContainerStyle={s.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           renderItem={({ item }) => (
             <RequestCard req={item} onPress={() => setSelectedReq(item)} />
           )}
         />
       )}
 
-      {/* ══ Modal: Detalhe da solicitação ══ */}
+      {/* Modal: Detalhe da solicitação */}
       <Modal
         visible={!!selectedReq && !showReject}
         transparent
@@ -318,77 +318,59 @@ export function RequestsListScreen({ navigation }: any) {
                 {/* Cabeçalho */}
                 <View style={m.header}>
                   <View>
-                    {selectedReq.isUrgent && <UrgentBadge />}
-                    <Text style={m.service}>{selectedReq.service}</Text>
-                    <Text style={m.category}>{selectedReq.category}</Text>
+                    <Text style={m.service}>{selectedReq.categoria}</Text>
+                    <Text style={m.category}>{selectedReq.subcategoria}</Text>
                   </View>
                   <TouchableOpacity onPress={() => setSelectedReq(null)}>
                     <Ionicons name="close" size={24} color="#333" />
                   </TouchableOpacity>
                 </View>
 
-                {/* Cliente */}
-                <View style={m.clientCard}>
-                  <View style={m.clientAvatar}>
-                    <Text style={m.clientInitials}>
-                      {selectedReq.clientName.split(' ').map(n => n[0]).join('')}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={m.clientName}>{selectedReq.clientName}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name="star" size={13} color="#FFC107" />
-                      <Text style={m.clientRating}>{selectedReq.clientRating} de avaliação</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity style={m.chatBtn}>
-                    <Ionicons name="chatbubble-outline" size={18} color={colors.primary} />
-                    <Text style={m.chatBtnText}>Perguntar</Text>
-                  </TouchableOpacity>
-                </View>
-
                 {/* Descrição */}
                 <View style={m.section}>
                   <Text style={m.sectionTitle}>Descrição do problema</Text>
-                  <Text style={m.desc}>{selectedReq.description}</Text>
-                  {selectedReq.photos > 0 && (
-                    <View style={m.photoRow}>
-                      <Ionicons name="images-outline" size={16} color={colors.primary} />
-                      <Text style={m.photoText}>{selectedReq.photos} foto(s) anexadas pelo cliente</Text>
-                    </View>
-                  )}
+                  <Text style={m.desc}>{selectedReq.descricao}</Text>
                 </View>
 
                 {/* Detalhes */}
                 <View style={m.infoGrid}>
-                  <View style={m.infoItem}>
-                    <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-                    <View>
-                      <Text style={m.infoLabel}>Data e horário</Text>
-                      <Text style={m.infoVal}>{selectedReq.date} às {selectedReq.time}</Text>
+                  {selectedReq.dataAgendada && (
+                    <View style={m.infoItem}>
+                      <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                      <View>
+                        <Text style={m.infoLabel}>Data e horário</Text>
+                        <Text style={m.infoVal}>
+                          {selectedReq.dataAgendada}
+                          {selectedReq.horaAgendada ? ` às ${selectedReq.horaAgendada}` : ''}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
+                  )}
                   <View style={m.infoItem}>
-                    <Ionicons name={selectedReq.modalidade === 'presencial' ? 'location-outline' : 'laptop-outline'} size={18} color={colors.primary} />
+                    <Ionicons
+                      name={selectedReq.modalidade === 'presencial' ? 'location-outline' : 'laptop-outline'}
+                      size={18} color={colors.primary}
+                    />
                     <View>
                       <Text style={m.infoLabel}>Local</Text>
-                      <Text style={m.infoVal}>{selectedReq.address}</Text>
-                      {selectedReq.distance !== '–' && (
-                        <Text style={m.infoSub}>{selectedReq.distance} de você</Text>
-                      )}
+                      <Text style={m.infoVal}>
+                        {selectedReq.modalidade === 'presencial'
+                          ? (selectedReq.endereco ?? 'A confirmar')
+                          : 'Remoto'}
+                      </Text>
                     </View>
                   </View>
                   <View style={m.infoItem}>
                     <Ionicons name="wallet-outline" size={18} color={colors.primary} />
                     <View>
                       <Text style={m.infoLabel}>Estimativa</Text>
-                      <Text style={m.infoVal}>{selectedReq.estimatedPrice}</Text>
+                      <Text style={m.infoVal}>{selectedReq.valorEstimado ?? 'A combinar'}</Text>
                     </View>
                   </View>
                 </View>
 
                 {/* Ações */}
-                {selectedReq.status === 'nova' && (
+                {selectedReq.status === 'solicitado' && (
                   <View style={m.actions}>
                     <TouchableOpacity
                       style={m.rejectBtn}
@@ -406,23 +388,54 @@ export function RequestsListScreen({ navigation }: any) {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={m.acceptBtn}
+                      style={[m.acceptBtn, actionLoading && { opacity: 0.6 }]}
                       onPress={() => handleAccept(selectedReq)}
+                      disabled={actionLoading}
                     >
-                      <Ionicons name="checkmark" size={18} color="#FFF" />
-                      <Text style={m.acceptText}>Aceitar</Text>
+                      {actionLoading
+                        ? <ActivityIndicator color="#FFF" size="small" />
+                        : <>
+                            <Ionicons name="checkmark" size={18} color="#FFF" />
+                            <Text style={m.acceptText}>Aceitar</Text>
+                          </>
+                      }
                     </TouchableOpacity>
                   </View>
                 )}
 
-                {selectedReq.status === 'andamento' && (
+                {selectedReq.status === 'aceito' && (
                   <TouchableOpacity
-                    style={m.startBtn}
-                    onPress={() => { setSelectedReq(null); navigation.navigate('ServiceExecution'); }}
+                    style={[m.startBtn, actionLoading && { opacity: 0.6 }]}
+                    onPress={() => handleChangeStatus(selectedReq, 'andamento')}
+                    disabled={actionLoading}
                   >
-                    <Ionicons name="play-circle-outline" size={20} color="#FFF" />
-                    <Text style={m.startBtnText}>Ir para Execução</Text>
+                    {actionLoading
+                      ? <ActivityIndicator color="#FFF" size="small" />
+                      : <><Ionicons name="play-circle-outline" size={20} color="#FFF" /><Text style={m.startBtnText}>Iniciar serviço</Text></>
+                    }
                   </TouchableOpacity>
+                )}
+
+                {selectedReq.status === 'andamento' && (
+                  <View style={{ gap: 10 }}>
+                    <TouchableOpacity
+                      style={[m.startBtn, actionLoading && { opacity: 0.6 }]}
+                      onPress={() => { setSelectedReq(null); navigation.navigate('ServiceExecution', { orderId: selectedReq.id }); }}
+                    >
+                      <Ionicons name="construct-outline" size={20} color="#FFF" />
+                      <Text style={m.startBtnText}>Tela de execução</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[m.startBtn, { backgroundColor: '#2E7D32' }, actionLoading && { opacity: 0.6 }]}
+                      onPress={() => handleChangeStatus(selectedReq, 'concluido')}
+                      disabled={actionLoading}
+                    >
+                      {actionLoading
+                        ? <ActivityIndicator color="#FFF" size="small" />
+                        : <><Ionicons name="checkmark-done" size={20} color="#FFF" /><Text style={m.startBtnText}>Concluir serviço</Text></>
+                      }
+                    </TouchableOpacity>
+                  </View>
                 )}
               </ScrollView>
             )}
@@ -430,7 +443,7 @@ export function RequestsListScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* ══ Modal: Motivo da recusa ══ */}
+      {/* Modal: Motivo da recusa */}
       <Modal
         visible={showReject}
         transparent
@@ -448,7 +461,7 @@ export function RequestsListScreen({ navigation }: any) {
             {REJECT_REASONS.map(reason => (
               <TouchableOpacity
                 key={reason}
-                style={[rj.option, rejectReason === reason && rj.optionActive]}
+                style={rj.option}
                 onPress={() => setRejectReason(reason)}
               >
                 <Ionicons
@@ -466,8 +479,15 @@ export function RequestsListScreen({ navigation }: any) {
               <TouchableOpacity style={rj.cancelBtn} onPress={() => setShowReject(false)}>
                 <Text style={rj.cancelText}>Voltar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={rj.confirmBtn} onPress={handleReject}>
-                <Text style={rj.confirmText}>Confirmar recusa</Text>
+              <TouchableOpacity
+                style={[rj.confirmBtn, actionLoading && { opacity: 0.6 }]}
+                onPress={handleReject}
+                disabled={actionLoading}
+              >
+                {actionLoading
+                  ? <ActivityIndicator color="#C62828" />
+                  : <Text style={rj.confirmText}>Confirmar recusa</Text>
+                }
               </TouchableOpacity>
             </View>
           </View>

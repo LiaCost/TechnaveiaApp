@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TextInput, FlatList,
   TouchableOpacity, KeyboardAvoidingView, Platform,
-  Alert, ActivityIndicator, Image,
+  Alert, ActivityIndicator, Image, StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../../theme';
@@ -110,9 +111,13 @@ const ds = StyleSheet.create({
 
 export function ChatScreen({ navigation, route }: any) {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const conversaId: string = route?.params?.conversaId ?? 'c1';
   const outroNome: string = route?.params?.outroNome ?? 'Ricardo Silva';
+  const outroFoto: string | undefined = route?.params?.outroFoto;
   const pedidoNumero: string | undefined = route?.params?.pedidoNumero;
+  const pedidoId: string | undefined = route?.params?.pedidoId;
+  const chatEncerrado: boolean = route?.params?.chatEncerrado ?? false;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -253,16 +258,21 @@ export function ChatScreen({ navigation, route }: any) {
 
   return (
     <View style={s.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" translucent={false} />
       {/* ── Header ── */}
-      <View style={s.header}>
+      <View style={[s.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBack}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
 
         <View style={s.headerAvatar}>
-          <Text style={s.headerAvatarText}>
-            {outroNome.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
-          </Text>
+          {outroFoto ? (
+            <Image source={{ uri: outroFoto }} style={{ width: 40, height: 40, borderRadius: 12 }} />
+          ) : (
+            <Text style={s.headerAvatarText}>
+              {outroNome.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+            </Text>
+          )}
           <View style={s.onlineDot} />
         </View>
 
@@ -305,7 +315,13 @@ export function ChatScreen({ navigation, route }: any) {
         )}
 
         {/* ── Input ── */}
-        <View style={s.inputArea}>
+        {chatEncerrado ? (
+          <View style={[s.closedBar, { paddingBottom: insets.bottom + 8 }]}>
+            <Ionicons name="lock-closed-outline" size={16} color="#999" />
+            <Text style={s.closedText}>Conversa encerrada. Serviço finalizado.</Text>
+          </View>
+        ) : (
+        <View style={[s.inputArea, { paddingBottom: insets.bottom + 8 }]}>
           <TouchableOpacity style={s.attachBtn} onPress={handlePickImage}>
             <Ionicons name="add" size={26} color="#666" />
           </TouchableOpacity>
@@ -340,6 +356,7 @@ export function ChatScreen({ navigation, route }: any) {
             />
           </TouchableOpacity>
         </View>
+        )}
       </KeyboardAvoidingView>
     </View>
   );
@@ -427,4 +444,9 @@ const s = StyleSheet.create({
     backgroundColor: '#CCC', justifyContent: 'center', alignItems: 'center',
   },
   sendBtnActive: { backgroundColor: colors.primary },
+  closedBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    padding: 16, backgroundColor: '#F5F5F5', borderTopWidth: 1, borderTopColor: '#EEE',
+  },
+  closedText: { fontSize: 13, color: '#999', fontWeight: '500' },
 });

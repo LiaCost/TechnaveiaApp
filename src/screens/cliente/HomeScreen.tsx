@@ -1,49 +1,83 @@
-import React from 'react';
-import { 
-  ScrollView, View, Text, StyleSheet, TextInput, 
-  TouchableOpacity, StatusBar // <-- Importamos o StatusBar nativo para controlar a cor do topo
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  ScrollView, View, Text, StyleSheet, TextInput,
+  TouchableOpacity, StatusBar, ActivityIndicator, Image,
 } from 'react-native';
-// Importe o SafeAreaView da biblioteca correta:
-import { SafeAreaView } from 'react-native-safe-area-context'; 
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, theme } from '../../theme';
+import { useFocusEffect } from '@react-navigation/native';
+import { colors } from '../../theme';
 import { HomeHeader } from '../../components/HomeHeader';
+import { technicianService, notificationService, Technician } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CATEGORIES = [
-  { id: '1', title: 'PCs', icon: 'desktop-outline' },
-  { id: '2', title: 'Celulares', icon: 'phone-portrait-outline' },
-  { id: '3', title: 'Redes', icon: 'wifi-outline' },
-  { id: '4', title: 'Automação', icon: 'home-outline' },
-  { id: '5', title: 'Segurança', icon: 'videocam-outline' },
-  { id: '6', title: 'Remoto', icon: 'laptop-outline' },
-  { id: '7', title: 'TVs', icon: 'tv-outline' },
-  { id: '8', title: 'Outros', icon: 'grid-outline' },
+  { id: 'pc',          title: 'PCs',         icon: 'desktop-outline' },
+  { id: 'celular',     title: 'Celulares',    icon: 'phone-portrait-outline' },
+  { id: 'redes',       title: 'Redes',        icon: 'wifi-outline' },
+  { id: 'automacao',   title: 'Automação',    icon: 'home-outline' },
+  { id: 'cftv',        title: 'Segurança',    icon: 'videocam-outline' },
+  { id: 'remoto',      title: 'Remoto',       icon: 'laptop-outline' },
+  { id: 'tv',          title: 'TVs',          icon: 'tv-outline' },
+  { id: 'outros',      title: 'Outros',       icon: 'grid-outline' },
 ];
 
-export function HomeScreen() {
+export function HomeScreen({ navigation }: any) {
+  const { user } = useAuth();
+  const [techs, setTechs]       = useState<Technician[]>([]);
+  const [loadingTechs, setLoadingTechs] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoadingTechs(true);
+      technicianService
+        .search()
+        .then(data => setTechs(data.slice(0, 6)))
+        .catch(() => setTechs([]))
+        .finally(() => setLoadingTechs(false));
+
+      // Carrega contagem de notificações não lidas
+      notificationService.list()
+        .then(data => setUnreadCount(data.filter(n => !n.lida).length))
+        .catch(() => {});
+    }, [])
+  );
+
   return (
-    // Passamos edges para controlar quais lados recebem o espaçamento automático de segurança
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Força os ícones do sistema (hora, wifi) a ficarem escuros (visíveis em fundos claros) */}
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         contentContainerStyle={styles.scrollContent}
       >
-        <HomeHeader name="Carlos" location="Av. Paulista, 1000 - SP" />
+        <HomeHeader
+          name={user?.nome?.split(' ')[0] ?? 'Olá'}
+          location={user?.cidade ?? 'Sua localização'}
+          foto={user?.foto}
+          onNotificationPress={() => {
+            const parent = navigation.getParent();
+            (parent ?? navigation).navigate('Notifications');
+          }}
+          notificationCount={unreadCount}
+        />
 
         {/* Barra de Busca */}
         <View style={[styles.searchSection, { backgroundColor: colors.light }]}>
-          <View style={styles.searchBar}>
+          <TouchableOpacity
+            style={styles.searchBar}
+            onPress={() => navigation.navigate('Buscar')}
+            activeOpacity={0.8}
+          >
             <Ionicons name="search" size={20} color="#999" />
-            <TextInput 
-              placeholder="O que você precisa consertar?" 
-              style={styles.searchInput}
-            />
-          </View>
-          <TouchableOpacity style={styles.filterBtn}>
+            <Text style={styles.searchPlaceholder}>O que você precisa consertar?</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.filterBtn}
+            onPress={() => navigation.navigate('Buscar')}
+          >
             <Ionicons name="options-outline" size={24} color="#FFF" />
           </TouchableOpacity>
         </View>
@@ -53,7 +87,11 @@ export function HomeScreen() {
           <Text style={styles.sectionTitle}>Categorias</Text>
           <View style={styles.grid}>
             {CATEGORIES.map(cat => (
-              <TouchableOpacity key={cat.id} style={styles.catItem}>
+              <TouchableOpacity
+                key={cat.id}
+                style={styles.catItem}
+                onPress={() => navigation.navigate('Buscar', { categoria: cat.id })}
+              >
                 <View style={styles.catIcon}>
                   <Ionicons name={cat.icon as any} size={28} color={colors.primary} />
                 </View>
@@ -64,7 +102,10 @@ export function HomeScreen() {
         </View>
 
         {/* Botão Solicitação Rápida */}
-        <TouchableOpacity style={styles.quickRequest}>
+        <TouchableOpacity
+          style={styles.quickRequest}
+          onPress={() => navigation.navigate('RequestService')}
+        >
           <View>
             <Text style={styles.quickTitle}>Solicitar Serviço Agora</Text>
             <Text style={styles.quickSub}>Técnicos disponíveis em 30 min</Text>
@@ -72,25 +113,62 @@ export function HomeScreen() {
           <Ionicons name="flash" size={32} color="#FFF" />
         </TouchableOpacity>
 
-        {/* Técnicos em Destaque (Horizontal) */}
+        {/* Técnicos em Destaque */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Técnicos em Destaque</Text>
-            <TouchableOpacity><Text style={{color: colors.primary}}>Ver todos</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Buscar')}>
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>Ver todos</Text>
+            </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ backgroundColor: 'transparent' }} contentContainerStyle={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 10 }}>
-             {[1,2,3].map(i => (
-               <View key={i} style={styles.techCard}>
-                  <View style={styles.techPhoto} />
-                  <Text style={styles.techName}>Ricardo Silva</Text>
-                  <Text style={styles.techSpec}>Especialista em Redes</Text>
-                  <View style={styles.ratingRow}>
-                    <Ionicons name="star" size={14} color="#FFD700" />
-                    <Text style={styles.ratingText}>4.9 (120 avaliações)</Text>
+
+          {loadingTechs ? (
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 10 }} />
+          ) : techs.length === 0 ? (
+            <Text style={styles.emptyTechs}>Nenhum técnico disponível no momento.</Text>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 10 }}
+            >
+              {techs.map(tech => (
+                <TouchableOpacity
+                  key={tech.id}
+                  style={styles.techCard}
+                  onPress={() => navigation.navigate('TechProfile', { techId: tech.id })}
+                >
+                  <View style={styles.techPhoto}>
+                    {tech.foto ? (
+                      <Image source={{ uri: tech.foto }} style={{ width: '100%', height: 100, borderRadius: 12 }} />
+                    ) : (
+                      <Text style={styles.techInitials}>
+                        {tech.nome.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                      </Text>
+                    )}
+                    {tech.verificado && (
+                      <View style={styles.verifiedBadge}>
+                        <Ionicons name="checkmark" size={10} color="#FFF" />
+                      </View>
+                    )}
                   </View>
-               </View>
-             ))}
-          </ScrollView>
+                  <Text style={styles.techName} numberOfLines={1}>{tech.nome}</Text>
+                  <Text style={styles.techSpec} numberOfLines={1}>
+                    {tech.especialidades.slice(0, 2).join(', ')}
+                  </Text>
+                  <View style={styles.ratingRow}>
+                    <Ionicons name="star" size={13} color="#FFD700" />
+                    <Text style={styles.ratingText}>
+                      {tech.avaliacao} ({tech.totalAvaliacoes})
+                    </Text>
+                  </View>
+                  {tech.precoMedio && (
+                    <Text style={styles.techPrice}>{tech.precoMedio}</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -98,32 +176,60 @@ export function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { 
-    flex: 1, 
-    backgroundColor: colors.light,
-  },
-  scrollContent: {
-    paddingBottom: 32,
-  },
+  safe: { flex: 1, backgroundColor: colors.light },
+  scrollContent: { paddingBottom: 32 },
   searchSection: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 25 },
-  searchBar: { flex: 1, height: 50, backgroundColor: '#FFF', borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15 },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 16 },
-  filterBtn: { width: 50, height: 50, backgroundColor: colors.primary, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  searchBar: {
+    flex: 1, height: 50, backgroundColor: '#FFF', borderRadius: 12,
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15,
+  },
+  searchPlaceholder: { flex: 1, marginLeft: 10, fontSize: 15, color: '#AAA' },
+  filterBtn: {
+    width: 50, height: 50, backgroundColor: colors.primary,
+    borderRadius: 12, justifyContent: 'center', alignItems: 'center',
+  },
   section: { marginBottom: 25, overflow: 'visible' },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12 },
-  // Removido o paddingHorizontal fixo daqui para não quebrar o alinhamento com o ScrollView horizontal
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', paddingHorizontal: 20, color: colors.dark1 }, 
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, marginBottom: 12,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', paddingHorizontal: 20, color: colors.dark1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, marginTop: 15 },
   catItem: { width: '25%', alignItems: 'center', marginBottom: 20 },
-  catIcon: { width: 60, height: 60, backgroundColor: '#FFF', borderRadius: 15, justifyContent: 'center', alignItems: 'center', shadowOpacity: 0.1 },
-  catLabel: { fontSize: 12, marginTop: 8, textAlign: 'center', fontWeight: '500' },
-  quickRequest: { marginHorizontal: 20, backgroundColor: colors.dark1, padding: 20, borderRadius: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
+  catIcon: {
+    width: 60, height: 60, backgroundColor: '#FFF', borderRadius: 15,
+    justifyContent: 'center', alignItems: 'center', elevation: 2,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4,
+  },
+  catLabel: { fontSize: 12, marginTop: 8, textAlign: 'center', fontWeight: '500', color: '#444' },
+  quickRequest: {
+    marginHorizontal: 20, backgroundColor: colors.dark1, padding: 20,
+    borderRadius: 20, flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 25,
+  },
   quickTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
   quickSub: { color: '#AAA', fontSize: 13 },
-  techCard: { width: 180, backgroundColor: '#FFF', borderRadius: 20, padding: 15, marginRight: 15, marginBottom: 10, elevation: 3, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8 },
-  techPhoto: { width: '100%', height: 120, backgroundColor: '#EEE', borderRadius: 12, marginBottom: 10 },
-  techName: { fontWeight: 'bold', fontSize: 16 },
+  emptyTechs: { color: '#AAA', textAlign: 'center', paddingVertical: 20, paddingHorizontal: 20 },
+  techCard: {
+    width: 180, backgroundColor: '#FFF', borderRadius: 20, padding: 15,
+    marginRight: 15, marginBottom: 10, elevation: 3,
+    shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8,
+  },
+  techPhoto: {
+    width: '100%', height: 100, backgroundColor: colors.primary + '15',
+    borderRadius: 12, marginBottom: 10,
+    justifyContent: 'center', alignItems: 'center', position: 'relative',
+  },
+  techInitials: { fontSize: 28, fontWeight: '700', color: colors.primary },
+  verifiedBadge: {
+    position: 'absolute', bottom: 6, right: 6,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: '#FFF',
+  },
+  techName: { fontWeight: 'bold', fontSize: 15, color: '#222' },
   techSpec: { color: '#666', fontSize: 12, marginVertical: 4 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ratingText: { fontSize: 12, color: colors.dark3 }
+  ratingText: { fontSize: 12, color: '#555' },
+  techPrice: { fontSize: 12, color: colors.primary, fontWeight: '600', marginTop: 6 },
 });

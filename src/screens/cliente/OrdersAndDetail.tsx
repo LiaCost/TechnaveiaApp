@@ -44,6 +44,29 @@ export function OrderDetailScreen({ navigation, route }: any) {
       .finally(() => setIsLoading(false));
   }, [orderId]);
 
+  async function openChat() {
+    if (!order) return;
+    try {
+      const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+      const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+      const token = await AsyncStorage.getItem('@technaveia:token');
+      const res = await fetch(`${BASE_URL}/conversations/by-order/${order.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      const conversaId = json.data?.conversaId ?? json.conversaId;
+      if (!conversaId) { Alert.alert('Chat não disponível', 'A conversa ainda não foi criada.'); return; }
+      navigation.navigate('Chat', {
+        conversaId,
+        outroNome: order.tecnico?.nome ?? 'Técnico',
+        pedidoNumero: order.numero,
+        pedidoId: order.id,
+      });
+    } catch {
+      Alert.alert('Erro', 'Não foi possível abrir o chat.');
+    }
+  }
+
   async function handleCancel() {
     Alert.alert(
       'Cancelar pedido?',
@@ -193,12 +216,7 @@ export function OrderDetailScreen({ navigation, route }: any) {
 
               <TouchableOpacity
                 style={s.chatBtn}
-                onPress={() => navigation.navigate('Chat', {
-                  conversaId: `c_${order.tecnicoId}`,
-                  outroNome: order.tecnico?.nome,
-                  pedidoNumero: order.numero,
-                  pedidoId: order.id,
-                })}
+                onPress={openChat}
               >
                 <Ionicons name="chatbubble-outline" size={18} color={colors.primary} />
               </TouchableOpacity>
@@ -279,7 +297,10 @@ export function OrderDetailScreen({ navigation, route }: any) {
           <>
             <TouchableOpacity
               style={s.btnPrimary}
-              onPress={() => navigation.navigate('Review', { orderId: order.id })}
+              onPress={() => navigation.navigate('Review', {
+                orderId: order.id,
+                techNome: order.tecnico?.nome,
+              })}
             >
               <Ionicons name="star-outline" size={18} color="#FFF" />
               <Text style={s.btnPrimaryText}>Avaliar serviço</Text>
@@ -309,12 +330,7 @@ export function OrderDetailScreen({ navigation, route }: any) {
         {order.status === 'andamento' && (
           <TouchableOpacity
             style={s.btnPrimary}
-            onPress={() => navigation.navigate('Chat', {
-              conversaId: `c_${order.tecnicoId}`,
-              outroNome: order.tecnico?.nome,
-              pedidoNumero: order.numero,
-              pedidoId: order.id,
-            })}
+            onPress={openChat}
           >
             <Ionicons name="chatbubble-outline" size={18} color="#FFF" />
             <Text style={s.btnPrimaryText}>Falar com o técnico</Text>
