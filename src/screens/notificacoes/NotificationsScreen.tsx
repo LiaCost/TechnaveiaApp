@@ -63,7 +63,7 @@ export function NotificationsScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle}>Notificações</Text>
         <TouchableOpacity onPress={markAllRead}>
-          <Text style={styles.markReadText}>Limpar tudo</Text>
+          <Text style={styles.markReadText}>Marcar como lidas</Text>
         </TouchableOpacity>
       </View>
 

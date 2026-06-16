@@ -126,7 +126,7 @@ export function HomeScreen({ navigation }: any) {
           onPress={() => navigation.navigate('RequestService')}
         >
           <View>
-            <Text style={styles.quickTitle}>Solicitar Serviço Agora</Text>
+            <Text style={styles.quickTitle}>Solicitar serviço agora</Text>
             <Text style={styles.quickSub}>Técnicos disponíveis em 30 min</Text>
           </View>
           <Ionicons name="flash" size={32} color="#FFF" />
@@ -135,7 +135,7 @@ export function HomeScreen({ navigation }: any) {
         {/* Técnicos em Destaque */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Técnicos em Destaque</Text>
+            <Text style={styles.sectionTitle}>Técnicos em destaque</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Buscar')}>
               <Text style={{ color: colors.primary, fontWeight: '600' }}>Ver todos</Text>
             </TouchableOpacity>

@@ -205,7 +205,7 @@ export function TechProfileScreen({ navigation, route }: any) {
           style={st.requestBtn}
           onPress={() => navigation.navigate('RequestService')}
         >
-          <Text style={st.requestBtnText}>Solicitar Serviço</Text>
+          <Text style={st.requestBtnText}>Solicitar serviço</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
