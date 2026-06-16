@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, TextInput, Alert, Modal, ScrollView, ActivityIndicator,
-  RefreshControl,
+  RefreshControl, Platform, StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -82,6 +82,7 @@ export function UserManagementScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F0F2F5" />
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#FFF" />
@@ -219,7 +220,7 @@ export function UserManagementScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F0F2F5' },
+  safe: { flex: 1, backgroundColor: '#F0F2F5', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#1a1a1a', padding: 20 },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#FFF' },
   headerCount: { fontSize: 12, color: '#AAA' },

@@ -95,7 +95,7 @@ export function LoginScreen({ navigation }: any) {
           </View>
         </View>
 
-        <Button title={isLoading ? 'Entrando...' : 'Entrar'} onPress={handleLogin} />
+        <Button title="Entrar" onPress={handleLogin} loading={isLoading} disabled={isLoading} />
 
         <View style={styles.dividerContainer}>
           <View style={[styles.line, { backgroundColor: currentTheme.border }]} />

@@ -40,6 +40,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserToken(session.token);
           setUserType(session.type);
           setUser(session.user);
+          // Re-registra push notifications ao reabrir o app
+          import('../services/pushNotifications')
+            .then(m => m.setupPushNotifications())
+            .catch(() => {});
         }
       } catch (e) {
         console.warn('Erro ao recuperar sessão:', e);
@@ -53,19 +57,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
  async function signIn(token: string, type: 'client' | 'tech' | 'admin', userData: User) {
   const session = { token, type, user: userData };
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  await AsyncStorage.setItem(TOKEN_KEY, token); // usa TOKEN_KEY aqui
+  await AsyncStorage.setItem(TOKEN_KEY, token);
   setUserToken(token);
   setUserType(type);
   setUser(userData);
+
+  // Registra push notifications após login (não bloqueia)
+  import('../services/pushNotifications')
+    .then(m => m.setupPushNotifications())
+    .catch(() => {});
 }
 
 async function signOut() {
   await AsyncStorage.removeItem(STORAGE_KEY);
-  await AsyncStorage.removeItem(TOKEN_KEY); // remove TOKEN_KEY também
+  await AsyncStorage.removeItem(TOKEN_KEY);
   setUserToken(null);
   setUserType(null);
   setUser(null);
 }
+
+  // Detecta logout forçado (token removido pelo interceptor HTTP 401)
+  useEffect(() => {
+    if (!userToken) return;
+    const interval = setInterval(async () => {
+      const storedToken = await AsyncStorage.getItem(TOKEN_KEY);
+      if (!storedToken && userToken) {
+        setUserToken(null);
+        setUserType(null);
+        setUser(null);
+      }
+    }, 5000); // Verifica a cada 5 segundos
+    return () => clearInterval(interval);
+  }, [userToken]);
 
 
   return (

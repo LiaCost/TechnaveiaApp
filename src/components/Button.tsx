@@ -1,16 +1,19 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, useColorScheme } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, useColorScheme, ActivityIndicator } from 'react-native';
 import { theme, colors } from '.././theme';
 
 interface Props {
   title: string;
   onPress: () => void;
   type?: 'primary' | 'secondary';
+  disabled?: boolean;
+  loading?: boolean;
 }
 
-export function Button({ title, onPress, type = 'primary' }: Props) {
+export function Button({ title, onPress, type = 'primary', disabled = false, loading = false }: Props) {
   const colorScheme = useColorScheme();
   const currentTheme = colorScheme === 'dark' ? theme.dark : theme.light;
+  const isDisabled = disabled || loading;
 
   return (
     <TouchableOpacity 
@@ -18,16 +21,25 @@ export function Button({ title, onPress, type = 'primary' }: Props) {
         styles.container, 
         { backgroundColor: type === 'primary' ? colors.primary : 'transparent',
           borderWidth: type === 'secondary' ? 1 : 0,
-          borderColor: colors.primary }
+          borderColor: colors.primary,
+          opacity: isDisabled ? 0.6 : 1 }
       ]} 
       onPress={onPress}
+      disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: isDisabled }}
     >
-      <Text style={[
-        styles.text, 
-        { color: type === 'primary' ? colors.dark1 : colors.primary }
-      ]}>
-        {title}
-      </Text>
+      {loading ? (
+        <ActivityIndicator size="small" color={type === 'primary' ? colors.dark1 : colors.primary} />
+      ) : (
+        <Text style={[
+          styles.text, 
+          { color: type === 'primary' ? colors.dark1 : colors.primary }
+        ]}>
+          {title}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 }

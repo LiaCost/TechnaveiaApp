@@ -1,13 +1,24 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 
-export function OpenDisputeScreen() {
+export function OpenDisputeScreen({ navigation }: any) {
   const [reason, setReason] = useState('');
 
   return (
     <ScrollView style={stylesDispute.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+
+      {/* Header */}
+      <View style={stylesDispute.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={stylesDispute.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={stylesDispute.headerTitle}>Abrir Disputa</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <View style={stylesDispute.alertBox}>
         <Ionicons name="information-circle" size={20} color="#856404" />
         <Text style={stylesDispute.alertText}>Nossa equipe analisará seu caso em até 5 dias úteis.</Text>
@@ -46,7 +57,10 @@ export function OpenDisputeScreen() {
 }
 
 const stylesDispute = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF', padding: 20 },
+  container: { flex: 1, backgroundColor: '#FFF', padding: 20, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 10 : 20 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#333' },
   alertBox: { flexDirection: 'row', backgroundColor: '#FFF3CD', padding: 15, borderRadius: 12, gap: 10, marginBottom: 25 },
   alertText: { flex: 1, fontSize: 13, color: '#856404' },
   inputGroup: { marginBottom: 25 },

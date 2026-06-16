@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  ScrollView, View, Text, StyleSheet, TextInput,
-  TouchableOpacity, StatusBar, ActivityIndicator, Image,
+  ScrollView, View, Text, StyleSheet, Pressable,
+  TouchableOpacity, StatusBar, ActivityIndicator, Image, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,22 +27,30 @@ export function HomeScreen({ navigation }: any) {
   const [techs, setTechs]       = useState<Technician[]>([]);
   const [loadingTechs, setLoadingTechs] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      setLoadingTechs(true);
-      technicianService
-        .search()
-        .then(data => setTechs(data.slice(0, 6)))
-        .catch(() => setTechs([]))
-        .finally(() => setLoadingTechs(false));
+  const loadData = useCallback(() => {
+    setLoadingTechs(true);
+    technicianService
+      .search()
+      .then(data => setTechs(data.slice(0, 6)))
+      .catch(() => setTechs([]))
+      .finally(() => setLoadingTechs(false));
 
-      // Carrega contagem de notificações não lidas
-      notificationService.list()
-        .then(data => setUnreadCount(data.filter(n => !n.lida).length))
-        .catch(() => {});
-    }, [])
-  );
+    notificationService.list()
+      .then(data => setUnreadCount(data.filter(n => !n.lida).length))
+      .catch(() => {});
+  }, []);
+
+  useFocusEffect(loadData);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    Promise.all([
+      technicianService.search().then(data => setTechs(data.slice(0, 6))).catch(() => {}),
+      notificationService.list().then(data => setUnreadCount(data.filter(n => !n.lida).length)).catch(() => {}),
+    ]).finally(() => setRefreshing(false));
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -52,6 +60,9 @@ export function HomeScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
       >
         <HomeHeader
           name={user?.nome?.split(' ')[0] ?? 'Olá'}
@@ -87,16 +98,24 @@ export function HomeScreen({ navigation }: any) {
           <Text style={styles.sectionTitle}>Categorias</Text>
           <View style={styles.grid}>
             {CATEGORIES.map(cat => (
-              <TouchableOpacity
+              <Pressable
                 key={cat.id}
                 style={styles.catItem}
                 onPress={() => navigation.navigate('Buscar', { categoria: cat.id })}
+                android_ripple={null}
               >
-                <View style={styles.catIcon}>
-                  <Ionicons name={cat.icon as any} size={28} color={colors.primary} />
-                </View>
-                <Text style={styles.catLabel}>{cat.title}</Text>
-              </TouchableOpacity>
+                {({ pressed }) => (
+                  <>
+                    <View style={[
+                      styles.catIcon,
+                      pressed && styles.catIconPressed,
+                    ]}>
+                      <Ionicons name={cat.icon as any} size={28} color={colors.primary} />
+                    </View>
+                    <Text style={styles.catLabel}>{cat.title}</Text>
+                  </>
+                )}
+              </Pressable>
             ))}
           </View>
         </View>
@@ -200,6 +219,10 @@ const styles = StyleSheet.create({
     width: 60, height: 60, backgroundColor: '#FFF', borderRadius: 15,
     justifyContent: 'center', alignItems: 'center', elevation: 2,
     shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4,
+  },
+  catIconPressed: {
+    backgroundColor: '#EBEBEB',
+    elevation: 0,
   },
   catLabel: { fontSize: 12, marginTop: 8, textAlign: 'center', fontWeight: '500', color: '#444' },
   quickRequest: {

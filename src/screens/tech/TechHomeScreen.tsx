@@ -1,18 +1,15 @@
 import React, { useState, useCallback } from 'react';
 import {
   ScrollView, View, Text, StyleSheet, Switch,
-  TouchableOpacity, StatusBar, ActivityIndicator, Image,
+  TouchableOpacity, StatusBar, ActivityIndicator, Image, RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../../theme';
 import { TechStats } from '../../components/TechStats';
-import { orderService, notificationService, Order } from '../../services/api';
+import { orderService, notificationService, technicianService, financeService, Order } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
-
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
 
 function timeAgo(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 60000;
@@ -28,6 +25,7 @@ export function TechHomeScreen({ navigation }: any) {
   const [isOnline, setIsOnline] = useState(true);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Dados reais
   const [orders, setOrders] = useState<Order[]>([]);
@@ -41,7 +39,10 @@ export function TechHomeScreen({ navigation }: any) {
     }, [])
   );
 
-  async function loadAll() {
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadAll().finally(() => setRefreshing(false));
+  }, []);  async function loadAll() {
     setLoading(true);
     try {
       // Carrega pedidos do técnico
@@ -49,27 +50,19 @@ export function TechHomeScreen({ navigation }: any) {
       setOrders(allOrders);
 
       // Busca perfil do técnico para avaliação e taxa
-      const token = await AsyncStorage.getItem('@technaveia:token');
-      const meRes = await fetch(`${BASE_URL}/technicians/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (meRes.ok) {
-        const meJson = await meRes.json();
-        const tecnico = meJson.data ?? meJson;
+      try {
+        const meData = await technicianService.getMe();
+        const tecnico = meData.data ?? meData;
         setAvaliacao(tecnico.avaliacao ?? 0);
         setTaxaAceitacao(tecnico.taxaAceitacao ?? 100);
-      }
+      } catch { /* silencioso */ }
 
       // Busca resumo financeiro
-      const finRes = await fetch(`${BASE_URL}/finance/summary`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (finRes.ok) {
-        const finJson = await finRes.json();
-        const fin = finJson.data ?? finJson;
+      try {
+        const fin = await financeService.getSummary();
         const semana = fin.ganhosSemana ?? [];
         setGanhosSemana(semana.reduce((a: number, b: number) => a + b, 0));
-      }
+      } catch { /* silencioso */ }
 
       // Notificações
       notificationService.list()
@@ -93,7 +86,11 @@ export function TechHomeScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" translucent={false} />
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+        }
+      >
 
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>

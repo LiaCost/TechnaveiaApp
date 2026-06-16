@@ -19,7 +19,7 @@ import { ChatScreen }             from '../screens/chat/ChatScreen';
 import { SettingsScreen }         from '../screens/profile/SettingsScreen';
 import { HelpCenterScreen }       from '../screens/support/HelpCenterScreen';
 import { OpenDisputeScreen }      from '../screens/support/OpenDisputeScreen';
-import { ContactSupportScreen }   from '../screens/support/ContactSupporScreen';
+import { ContactSupportScreen }   from '../screens/support/ContactSupportScreen';
 import { ClientProfileScreen }   from '../screens/profile/ClientProfileScreen';
 import { OrderSuccessScreen }     from '../screens/cliente/OrderSuccessScreen';
 // ─── Tipos de parâmetros por rota ─────────────────────────

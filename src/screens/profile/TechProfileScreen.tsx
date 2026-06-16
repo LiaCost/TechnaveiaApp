@@ -17,6 +17,7 @@ interface TechFull {
   foto?: string;
   email?: string;
   especialidades: string[];
+  servicos: { id: string; nome: string; categoria: string; valor?: number; modalidade: string; descricao: string }[];
   avaliacao: number;
   totalAvaliacoes: number;
   verificado: boolean;
@@ -53,6 +54,7 @@ export function TechProfileScreen({ navigation, route }: any) {
           foto: raw.usuario?.foto ?? raw.foto ?? undefined,
           email: raw.usuario?.email ?? undefined,
           especialidades: (raw.especialidades ?? []).map((e: any) => typeof e === 'string' ? e : e.categoria),
+          servicos: (raw.servicos ?? []).filter((s: any) => s.ativo !== false),
           avaliacao: raw.avaliacao ?? 0,
           totalAvaliacoes: raw.totalAvaliacoes ?? 0,
           verificado: raw.verificado ?? false,
@@ -157,6 +159,24 @@ export function TechProfileScreen({ navigation, route }: any) {
           </View>
         )}
 
+        {/* Serviços */}
+        {tech.servicos.length > 0 && (
+          <View style={st.section}>
+            <Text style={st.sectionTitle}>Serviços oferecidos</Text>
+            {tech.servicos.map(srv => (
+              <View key={srv.id} style={st.serviceItem}>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.serviceItemName}>{srv.nome}</Text>
+                  <Text style={st.serviceItemCat}>{srv.categoria}</Text>
+                </View>
+                <Text style={st.serviceItemPrice}>
+                  {srv.valor ? `R$ ${srv.valor.toFixed(2).replace('.', ',')}` : 'A combinar'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Avaliações */}
         <View style={st.section}>
           <Text style={st.sectionTitle}>Avaliações ({tech.totalAvaliacoes})</Text>
@@ -212,6 +232,10 @@ const st = StyleSheet.create({
   section: { padding: 20 },
   sectionTitle: { fontSize: 17, fontWeight: 'bold', marginBottom: 12, color: '#222' },
   bio: { color: '#666', lineHeight: 22, fontSize: 14 },
+  serviceItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  serviceItemName: { fontSize: 15, fontWeight: '600', color: '#222' },
+  serviceItemCat: { fontSize: 12, color: '#888', marginTop: 2 },
+  serviceItemPrice: { fontSize: 15, fontWeight: '700', color: colors.primary },
   reviewCard: { backgroundColor: '#F8F9FF', padding: 14, borderRadius: 14, marginBottom: 10 },
   reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   reviewUser: { fontWeight: '700', fontSize: 14, color: '#333' },

@@ -1,12 +1,8 @@
 /**
  * TechNaVeia — API Service Layer
  *
- * Estrutura pensada para desenvolvimento progressivo:
- * - Hoje: USE_MOCK = true  → retorna dados simulados localmente
- * - Produção: USE_MOCK = false + BASE_URL configurada → chama a API real
- *
- * Para trocar um endpoint específico para real antes dos outros,
- * basta remover o bloco `if (USE_MOCK)` daquele método.
+ * Camada de serviços tipada que consome a API REST do backend.
+ * Inclui normalização de respostas e tratamento de erros.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,7 +10,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // ─── Configuração ─────────────────────────────────────────
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
-const USE_MOCK = false; // Desligar quando a API estiver pronta
 const REQUEST_TIMEOUT = 10_000; // 10 segundos
 
 // ─── Tipos base ───────────────────────────────────────────
@@ -221,19 +216,24 @@ async function httpRequest<T>(
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+
+      // Token expirado → força logout
+      if (res.status === 401) {
+        await AsyncStorage.removeItem('@technaveia:session');
+        await AsyncStorage.removeItem('@technaveia:token');
+        // O AuthContext escuta mudanças no estado — próximo render deslogará
+      }
+
       throw new ApiError(res.status, err.message ?? `Erro ${res.status}`, err);
     }
 
     const json = await res.json();
 
     // Unwrap envelope { success, data, ... }
-    // Caso 1: envelope com campo "data" explícito → retorna data
-    // Caso 2: envelope com "success" mas sem "data" (ex: auth) → retorna o objeto inteiro sem "success"
     if (json !== null && typeof json === 'object' && 'success' in json) {
       if ('data' in json) {
         return json.data as T;
       }
-      // Remove campo "success" e retorna o resto (token, userType, user, etc.)
       const { success, ...rest } = json;
       return rest as T;
     }
@@ -253,39 +253,6 @@ const get  = <T>(url: string)               => httpRequest<T>('GET', url);
 const post = <T>(url: string, body: unknown) => httpRequest<T>('POST', url, body);
 const put  = <T>(url: string, body: unknown) => httpRequest<T>('PUT', url, body);
 const del  = <T>(url: string)               => httpRequest<T>('DELETE', url);
-
-// ─── Simulador de latência (apenas em mock) ───────────────
-
-function delay(ms = 600): Promise<void> {
-  return new Promise(r => setTimeout(r, ms));
-}
-
-// ─── Mock data ────────────────────────────────────────────
-
-const MOCK_TECHNICIANS: Technician[] = [
-  { id: '1', userId: 't1', nome: 'Ricardo Silva', email: 'ricardo@email.com', especialidades: ['Redes', 'Hardware', 'Windows'], avaliacao: 4.9, totalAvaliacoes: 128, distancia: '2.5km', precoMedio: 'R$ 80–150', verificado: true, modalidade: 'ambos', status: 'aprovado', bio: 'Técnico certificado com mais de 10 anos de experiência em infraestrutura de TI.' },
-  { id: '2', userId: 't2', nome: 'Ana Oliveira', email: 'ana@email.com', especialidades: ['Notebooks', 'Celulares'], avaliacao: 5.0, totalAvaliacoes: 74, distancia: '3.8km', precoMedio: 'R$ 100–200', verificado: true, modalidade: 'presencial', status: 'aprovado' },
-  { id: '3', userId: 't3', nome: 'Marcos Paulo', email: 'marcos@email.com', especialidades: ['Redes', 'Automação'], avaliacao: 4.7, totalAvaliacoes: 52, distancia: '5.1km', precoMedio: 'R$ 70–130', verificado: false, modalidade: 'presencial', status: 'aprovado' },
-];
-
-const MOCK_ORDERS: Order[] = [
-  { id: '1', numero: '#8829', clienteId: 'u1', tecnicoId: '1', categoria: 'Computadores', subcategoria: 'Hardware', descricao: 'Troca de fonte de alimentação.', modalidade: 'presencial', endereco: 'Av. Paulista, 1000', dataAgendada: 'Hoje', horaAgendada: '14:00', status: 'andamento', valorEstimado: 'R$ 150–200', valorFinal: 315, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '2', numero: '#8821', clienteId: 'u1', tecnicoId: '2', categoria: 'Redes', subcategoria: 'Roteador', descricao: 'Configuração de roteador novo.', modalidade: 'presencial', endereco: 'R. Augusta, 500', dataAgendada: 'Amanhã', horaAgendada: '10:00', status: 'aceito', valorEstimado: 'A definir', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '3', numero: '#8801', clienteId: 'u1', tecnicoId: '3', categoria: 'Computadores', subcategoria: 'Formatação', descricao: 'Formatação completa com backup.', modalidade: 'presencial', endereco: 'R. da Consolação, 200', dataAgendada: '10/05/2026', horaAgendada: '09:30', status: 'concluido', valorFinal: 150, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '4', numero: '#8790', clienteId: 'u1', categoria: 'Celulares', subcategoria: 'Tela', descricao: 'Troca de tela quebrada.', modalidade: 'presencial', status: 'cancelado', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-];
-
-const MOCK_CONVERSATIONS: Conversation[] = [
-  { id: 'c1', participantes: ['u1', 't1'], outroUsuario: { id: 't1', nome: 'Ricardo Silva (Técnico)', online: true }, ultimaMensagem: { id: 'm1', conversaId: 'c1', remetenteId: 't1', tipo: 'text', conteudo: 'O orçamento já está pronto!', lida: false, createdAt: new Date().toISOString() }, naoLidas: 2, pedidoId: '1', updatedAt: new Date().toISOString() },
-  { id: 'c2', participantes: ['u1', 't2'], outroUsuario: { id: 't2', nome: 'Ana Oliveira', online: false }, ultimaMensagem: { id: 'm2', conversaId: 'c2', remetenteId: 'u1', tipo: 'text', conteudo: 'Pode vir amanhã às 10h?', lida: true, createdAt: new Date().toISOString() }, naoLidas: 0, updatedAt: new Date().toISOString() },
-];
-
-const MOCK_MESSAGES: Message[] = [
-  { id: 'm0', conversaId: 'c1', remetenteId: 'system', tipo: 'system', conteudo: 'Pedido #8829 criado', lida: true, createdAt: new Date(Date.now() - 3600000).toISOString() },
-  { id: 'm1', conversaId: 'c1', remetenteId: 't1', tipo: 'text', conteudo: 'Olá! Recebi sua solicitação. Posso ir amanhã às 14h, tudo bem?', lida: true, createdAt: new Date(Date.now() - 3000000).toISOString() },
-  { id: 'm2', conversaId: 'c1', remetenteId: 'u1', tipo: 'text', conteudo: 'Perfeito, estarei aguardando!', lida: true, createdAt: new Date(Date.now() - 2400000).toISOString() },
-  { id: 'm3', conversaId: 'c1', remetenteId: 't1', tipo: 'budget', conteudo: 'Orçamento enviado: R$ 315,00', metadados: { budgetId: 'b1', total: 315 }, lida: false, createdAt: new Date(Date.now() - 600000).toISOString() },
-];
 
 // ─── Normalização de userType (backend retorna pt-BR) ─────
 
@@ -313,135 +280,7 @@ function normalizeAuthResponse(raw: RawAuthResponse) {
   };
 }
 
-// ─── Serviços de autenticação ──────────────────────────────
-
-export const authService = {
-  async login(email: string, password: string) {
-    if (USE_MOCK) {
-      await delay();
-      if (email === 'teste@email.com' && password === '123456') {
-        return { token: 'mock_token_cliente', userType: 'client' as const, user: { id: 'u1', nome: 'Carlos Andrade', email, role: 'client' as const, createdAt: new Date().toISOString() } };
-      }
-      if (email === 'tecnico@email.com' && password === '123456') {
-        return { token: 'mock_token_tecnico', userType: 'tech' as const, user: { id: 't1', nome: 'Ricardo Silva', email, role: 'tech' as const, createdAt: new Date().toISOString() } };
-      }
-      throw new ApiError(401, 'E-mail ou senha incorretos');
-    }
-    const raw = await post<RawAuthResponse>('/auth/login', { email, senha: password });
-    return normalizeAuthResponse(raw);
-  },
-
-  async register(data: {
-    nome: string;
-    cpf: string;
-    email: string;
-    telefone: string;
-    senha: string;
-    endereco: object;
-    tipo?: 'client' | 'tech';
-    especialidades?: string[];
-    raioAtendimento?: number;
-    modalidade?: string;
-    whatsapp?: string;
-    banco?: string;
-    tipoConta?: string;
-    chavePix?: string;
-    agencia?: string;
-    conta?: string;
-  }) {
-    if (USE_MOCK) {
-      await delay(1200);
-      const userType = data.tipo === 'tech' ? 'tech' as const : 'client' as const;
-      return {
-        token: `mock_token_${userType}_new`,
-        userType,
-        user: {
-          id: Date.now().toString(),
-          nome: data.nome,
-          email: data.email,
-          role: userType,
-          createdAt: new Date().toISOString(),
-        },
-      };
-    }
-    const raw = await post<RawAuthResponse>('/auth/register', data);
-    return normalizeAuthResponse(raw);
-  },
-
-  async forgotPassword(email: string) {
-    if (USE_MOCK) { await delay(); return { success: true }; }
-    return post<{ success: boolean }>('/auth/forgot-password', { email });
-  },
-
-  async verifyCode(email: string, code: string) {
-    if (USE_MOCK) {
-      await delay();
-      if (code === '123456') return { token: 'reset_token_mock' };
-      throw new ApiError(400, 'Código inválido ou expirado');
-    }
-    return post<{ token: string }>('/auth/verify-code', { email, code });
-  },
-
-  async resetPassword(token: string, newPassword: string) {
-    if (USE_MOCK) { await delay(); return { success: true }; }
-    return post<{ success: boolean }>('/auth/reset-password', { token, newPassword });
-  },
-};
-
-// ─── Serviços de técnicos ──────────────────────────────────
-
-export const technicianService = {
-  async search(params?: { categoria?: string; distancia?: number; avaliacao?: number; modalidade?: string; query?: string }) {
-    if (USE_MOCK) {
-      await delay();
-      return MOCK_TECHNICIANS;
-    }
-    const qs = new URLSearchParams(params as Record<string, string>).toString();
-    const raw = await get<any[]>(`/technicians?${qs}`);
-    // Normaliza o shape do backend: { id, usuario:{nome,foto}, especialidades:[{categoria}], ... }
-    return raw.map(t => ({
-      id: t.id,
-      userId: t.usuarioId,
-      nome: t.usuario?.nome ?? t.nome ?? '',
-      email: t.usuario?.email ?? t.email ?? '',
-      foto: t.usuario?.foto ?? t.foto ?? undefined,
-      especialidades: (t.especialidades ?? []).map((e: any) =>
-        typeof e === 'string' ? e : e.categoria
-      ),
-      avaliacao: t.avaliacao ?? 0,
-      totalAvaliacoes: t.totalAvaliacoes ?? 0,
-      distancia: t.distancia ?? undefined,
-      precoMedio: t.precoMedio ?? undefined,
-      verificado: t.verificado ?? false,
-      bio: t.bio ?? undefined,
-      modalidade: t.modalidade ?? 'presencial',
-      status: t.status ?? 'aprovado',
-    } as Technician));
-  },
-
-  async getById(id: string) {
-    if (USE_MOCK) {
-      await delay(400);
-      const tech = MOCK_TECHNICIANS.find(t => t.id === id);
-      if (!tech) throw new ApiError(404, 'Técnico não encontrado');
-      return tech;
-    }
-    return get<Technician>(`/technicians/${id}`);
-  },
-
-  async getReviews(techId: string) {
-    if (USE_MOCK) {
-      await delay();
-      return [
-        { id: 'r1', pedidoId: '3', clienteId: 'u1', tecnicoId: techId, cliente: { nome: 'Mariana Silva' }, nota: 5, comentario: 'Ricardo foi super atencioso. Resolveu em 40 minutos!', recomenda: true, createdAt: new Date().toISOString() },
-        { id: 'r2', pedidoId: '2', clienteId: 'u2', tecnicoId: techId, cliente: { nome: 'Carlos Andrade' }, nota: 4, comentario: 'Serviço muito bom, preço justo. Só atrasou uns minutinhos.', recomenda: true, createdAt: new Date().toISOString() },
-      ] as Review[];
-    }
-    return get<Review[]>(`/technicians/${techId}/reviews`);
-  },
-};
-
-// ─── Normalização de pedido (backend retorna tecnico aninhado) ────
+// ─── Normalização de pedido ───────────────────────────────
 
 function normalizeOrder(raw: any): Order {
   const tecnico = raw.tecnico ? {
@@ -486,44 +325,122 @@ function normalizeOrder(raw: any): Order {
   };
 }
 
+// ─── Serviços de autenticação ──────────────────────────────
+
+export const authService = {
+  async login(email: string, password: string) {
+    const raw = await post<RawAuthResponse>('/auth/login', { email, senha: password });
+    return normalizeAuthResponse(raw);
+  },
+
+  async register(data: {
+    nome: string;
+    cpf: string;
+    email: string;
+    telefone: string;
+    senha: string;
+    endereco: object;
+    tipo?: 'client' | 'tech';
+    especialidades?: string[];
+    raioAtendimento?: number;
+    modalidade?: string;
+    whatsapp?: string;
+    banco?: string;
+    tipoConta?: string;
+    chavePix?: string;
+    agencia?: string;
+    conta?: string;
+  }) {
+    const raw = await post<RawAuthResponse>('/auth/register', data);
+    return normalizeAuthResponse(raw);
+  },
+
+  async forgotPassword(email: string) {
+    return post<{ success: boolean }>('/auth/forgot-password', { email });
+  },
+
+  async verifyCode(email: string, code: string) {
+    return post<{ token: string }>('/auth/verify-code', { email, code });
+  },
+
+  async resetPassword(token: string, newPassword: string) {
+    return post<{ success: boolean }>('/auth/reset-password', { token, newPassword });
+  },
+};
+
+// ─── Serviços de técnicos ──────────────────────────────────
+
+export const technicianService = {
+  async search(params?: { categoria?: string; distancia?: number; avaliacao?: number; modalidade?: string; query?: string; page?: number; perPage?: number }) {
+    const { page = 1, perPage = 20, ...filters } = params ?? {};
+    const qs = new URLSearchParams({
+      ...filters as Record<string, string>,
+      page: String(page),
+      perPage: String(perPage),
+    }).toString();
+    const raw = await get<any[]>(`/technicians?${qs}`);
+    return raw.map(t => ({
+      id: t.id,
+      userId: t.usuarioId,
+      nome: t.usuario?.nome ?? t.nome ?? '',
+      email: t.usuario?.email ?? t.email ?? '',
+      foto: t.usuario?.foto ?? t.foto ?? undefined,
+      especialidades: [
+        ...(t.especialidades ?? []).map((e: any) => typeof e === 'string' ? e : e.categoria),
+        ...(t.servicos ?? []).map((s: any) => s.nome),
+      ].filter((v, i, a) => a.indexOf(v) === i),
+      avaliacao: t.avaliacao ?? 0,
+      totalAvaliacoes: t.totalAvaliacoes ?? 0,
+      distancia: t.distancia ?? undefined,
+      precoMedio: t.precoMedio ?? undefined,
+      verificado: t.verificado ?? false,
+      bio: t.bio ?? undefined,
+      modalidade: t.modalidade ?? 'presencial',
+      status: t.status ?? 'aprovado',
+    } as Technician));
+  },
+
+  async getById(id: string) {
+    return get<Technician>(`/technicians/${id}`);
+  },
+
+  async getMe() {
+    return get<any>('/technicians/me');
+  },
+
+  async getReviews(techId: string) {
+    return get<Review[]>(`/technicians/${techId}/reviews`);
+  },
+};
+
 // ─── Serviços de pedidos ───────────────────────────────────
 
 export const orderService = {
-  async list(status?: string) {
-    if (USE_MOCK) {
-      await delay();
-      return status ? MOCK_ORDERS.filter(o => o.status === status) : MOCK_ORDERS;
-    }
-    const raw = await get<any[]>(`/orders${status ? `?status=${status}` : ''}`);
+  async list(params?: { status?: string; page?: number; perPage?: number }) {
+    const { status, page = 1, perPage = 20 } = params ?? {};
+    const qs = new URLSearchParams({
+      ...(status ? { status } : {}),
+      page: String(page),
+      perPage: String(perPage),
+    }).toString();
+    const raw = await get<any[]>(`/orders?${qs}`);
     return raw.map(normalizeOrder);
   },
 
   async getById(id: string) {
-    if (USE_MOCK) {
-      await delay(400);
-      const order = MOCK_ORDERS.find(o => o.id === id);
-      if (!order) throw new ApiError(404, 'Pedido não encontrado');
-      return { ...order, tecnico: MOCK_TECHNICIANS.find(t => t.id === order.tecnicoId) };
-    }
     const raw = await get<any>(`/orders/${id}`);
     return normalizeOrder(raw);
   },
 
   async create(data: Partial<Order>) {
-    if (USE_MOCK) {
-      await delay(800);
-      return { ...data, id: Date.now().toString(), numero: `#${Math.floor(Math.random() * 9000) + 1000}`, status: 'solicitado', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Order;
-    }
     return post<Order>('/orders', data);
   },
 
   async cancel(id: string) {
-    if (USE_MOCK) { await delay(); return { success: true }; }
     return del<{ success: boolean }>(`/orders/${id}`);
   },
 
   async review(id: string, data: Partial<Review>) {
-    if (USE_MOCK) { await delay(600); return { success: true }; }
     return post<Review>(`/orders/${id}/review`, data);
   },
 };
@@ -532,11 +449,7 @@ export const orderService = {
 
 export const chatService = {
   async listConversations() {
-    if (USE_MOCK) { await delay(); return MOCK_CONVERSATIONS; }
     const raw = await get<any[]>('/conversations');
-    // Backend retorna: { id, pedidoId, participantes:[{usuario:{id,nome,foto}}], mensagens:[última], updatedAt }
-    // Frontend espera: { id, outroUsuario:{id,nome,foto,online}, ultimaMensagem, naoLidas, pedidoId, updatedAt }
-    const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
     const sessionRaw = await AsyncStorage.getItem('@technaveia:session');
     const myId = sessionRaw ? JSON.parse(sessionRaw).user?.id : null;
 
@@ -555,7 +468,7 @@ export const chatService = {
           id: outro.id,
           nome: outro.nome,
           foto: outro.foto ?? undefined,
-          online: false, // sem websocket ainda
+          online: false,
         },
         ultimaMensagem: ultimaMensagem ? {
           id: ultimaMensagem.id,
@@ -575,18 +488,10 @@ export const chatService = {
   },
 
   async getMessages(conversaId: string) {
-    if (USE_MOCK) {
-      await delay(400);
-      return MOCK_MESSAGES.filter(m => m.conversaId === conversaId);
-    }
     return get<Message[]>(`/conversations/${conversaId}/messages`);
   },
 
   async sendMessage(conversaId: string, data: { tipo: Message['tipo']; conteudo: string; metadados?: Record<string, unknown> }) {
-    if (USE_MOCK) {
-      await delay(300);
-      return { id: Date.now().toString(), conversaId, remetenteId: 'u1', lida: false, createdAt: new Date().toISOString(), ...data } as Message;
-    }
     return post<Message>(`/conversations/${conversaId}/messages`, data);
   },
 };
@@ -595,25 +500,10 @@ export const chatService = {
 
 export const financeService = {
   async getSummary() {
-    if (USE_MOCK) {
-      await delay();
-      return {
-        saldoDisponivel: 1450.20,
-        saldoPendente: 420.00,
-        ganhosMes: 4280.00,
-        ganhosMesAnterior: 3900.00,
-        ganhosSemana: [40, 70, 45, 90, 65, 30, 85],
-        transacoes: [
-          { id: 't1', tipo: 'credito', servico: 'Formatação PC', cliente: 'João Pedro', valorBruto: 150, taxa: 22.50, valorLiquido: 127.50, status: 'concluido', date: 'Hoje' },
-          { id: 't2', tipo: 'credito', servico: 'Troca de Tela', cliente: 'Carla Mendes', valorBruto: 350, taxa: 52.50, valorLiquido: 297.50, status: 'pendente', date: 'Ontem' },
-        ] as Transaction[],
-      } as FinanceSummary;
-    }
     return get<FinanceSummary>('/finance/summary');
   },
 
   async requestWithdraw(valor: number, contaBancariaId: string) {
-    if (USE_MOCK) { await delay(1500); return { success: true, prazo: '1-3 dias úteis' }; }
     return post<{ success: boolean; prazo: string }>('/finance/withdraw', { valor, contaBancariaId });
   },
 };
@@ -622,20 +512,10 @@ export const financeService = {
 
 export const notificationService = {
   async list() {
-    if (USE_MOCK) {
-      await delay();
-      return [
-        { id: 'n1', tipo: 'request', titulo: 'Nova solicitação!', descricao: 'Formatação de PC em Santana disponível.', lida: false, createdAt: new Date(Date.now() - 120000).toISOString() },
-        { id: 'n2', tipo: 'payment', titulo: 'Pagamento Confirmado', descricao: 'O valor do pedido #8829 já está no seu saldo.', lida: false, createdAt: new Date(Date.now() - 3600000).toISOString() },
-        { id: 'n3', tipo: 'budget', titulo: 'Orçamento Recebido', descricao: 'O técnico Ricardo enviou uma proposta.', lida: true, createdAt: new Date(Date.now() - 10800000).toISOString() },
-        { id: 'n4', tipo: 'message', titulo: 'Nova Mensagem', descricao: 'Ana: "Pode vir amanhã às 10h?"', lida: true, createdAt: new Date(Date.now() - 18000000).toISOString() },
-      ] as Notification[];
-    }
     return get<Notification[]>('/notifications');
   },
 
   async markAllRead() {
-    if (USE_MOCK) { await delay(300); return { success: true }; }
     return post<{ success: boolean }>('/notifications/read-all', {});
   },
 };

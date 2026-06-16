@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, StatusBar } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from '../../theme';
 
 export function AdminFinance() {
   return (
     <View style={stylesAdminFin.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
       <View style={stylesAdminFin.summaryBox}>
         <Text style={stylesAdminFin.summaryLabel}>Receita de Taxas (15%)</Text>
         <Text style={stylesAdminFin.summaryValue}>R$ 6.375,00</Text>
@@ -32,7 +33,7 @@ export function AdminFinance() {
 }
 
 const stylesAdminFin = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#FFF' },
+  container: { flex: 1, padding: 20, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 20 : 20, backgroundColor: '#FFF' },
   summaryBox: { backgroundColor: '#1a1a1a', padding: 25, borderRadius: 20, alignItems: 'center' },
   summaryLabel: { color: '#AAA', fontSize: 13 },
   summaryValue: { color: '#FFF', fontSize: 32, fontWeight: 'bold', marginTop: 10 },

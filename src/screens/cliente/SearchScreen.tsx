@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
   TouchableOpacity, FlatList, Modal, ScrollView,
-  StatusBar, ActivityIndicator,
+  StatusBar, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -114,9 +114,13 @@ export function SearchScreen({ navigation, route }: any) {
               }}
             >
               <View style={styles.techAvatar}>
-                <Text style={styles.techInitials}>
-                  {item.nome.split(' ').map(n => n[0]).slice(0, 2).join('')}
-                </Text>
+                {item.foto ? (
+                  <Image source={{ uri: item.foto }} style={{ width: 56, height: 56, borderRadius: 16 }} />
+                ) : (
+                  <Text style={styles.techInitials}>
+                    {item.nome.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                  </Text>
+                )}
                 {item.verificado && (
                   <View style={styles.verifiedDot}>
                     <Ionicons name="checkmark" size={8} color="#FFF" />

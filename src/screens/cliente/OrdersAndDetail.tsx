@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, ActivityIndicator, Alert,
+  Platform, StatusBar, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
@@ -186,10 +187,16 @@ export function OrderDetailScreen({ navigation, route }: any) {
           <View style={s.section}>
             <Text style={s.sectionTitle}>Técnico responsável</Text>
             <View style={s.techCard}>
-              <View style={s.techAvatar}>
-                <Text style={s.techInitials}>
-                  {order.tecnico.nome.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                </Text>
+              <View style={s.techAvatarWrap}>
+                {order.tecnico.foto ? (
+                  <Image source={{ uri: order.tecnico.foto }} style={s.techAvatarImg} />
+                ) : (
+                  <View style={s.techAvatar}>
+                    <Text style={s.techInitials}>
+                      {order.tecnico.nome.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    </Text>
+                  </View>
+                )}
                 {order.tecnico.verificado && (
                   <View style={s.verifiedDot}>
                     <Ionicons name="checkmark" size={10} color="#FFF" />
@@ -300,6 +307,7 @@ export function OrderDetailScreen({ navigation, route }: any) {
               onPress={() => navigation.navigate('Review', {
                 orderId: order.id,
                 techNome: order.tecnico?.nome,
+                techFoto: order.tecnico?.foto,
               })}
             >
               <Ionicons name="star-outline" size={18} color="#FFF" />
@@ -345,7 +353,7 @@ export function OrderDetailScreen({ navigation, route }: any) {
 // ─── Estilos ───────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F9FF' },
+  safe: { flex: 1, backgroundColor: '#F8F9FF', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {
@@ -406,7 +414,13 @@ const s = StyleSheet.create({
   techAvatar: {
     width: 50, height: 50, borderRadius: 14,
     backgroundColor: colors.primary + '15',
-    justifyContent: 'center', alignItems: 'center', position: 'relative',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  techAvatarWrap: {
+    position: 'relative',
+  },
+  techAvatarImg: {
+    width: 50, height: 50, borderRadius: 14,
   },
   techInitials: { fontSize: 16, fontWeight: '700', color: colors.primary },
   verifiedDot: {
@@ -446,13 +460,14 @@ const s = StyleSheet.create({
   valueCard: {
     backgroundColor: colors.dark1, borderRadius: 18, padding: 20,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    flexWrap: 'wrap', gap: 8,
   },
   valueLabel: { fontSize: 13, color: '#AAA' },
-  valueAmount: { fontSize: 22, fontWeight: '700', color: '#FFF' },
+  valueAmount: { fontSize: 18, fontWeight: '700', color: '#FFF', flexShrink: 1 },
 
   // Footer
   footer: {
-    padding: 16, backgroundColor: '#FFF',
+    padding: 16, paddingBottom: Platform.OS === 'android' ? 34 : 16, backgroundColor: '#FFF',
     borderTopWidth: 1, borderTopColor: '#EEE', gap: 10,
   },
   btnPrimary: {

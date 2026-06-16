@@ -22,7 +22,34 @@ import { SettingsScreen }       from '../screens/profile/SettingsScreen';
 import { HelpCenterScreen }     from '../screens/support/HelpCenterScreen';
 import { OpenDisputeScreen }    from '../screens/support/OpenDisputeScreen';
 
-const Stack = createNativeStackNavigator();
+// ─── Tipos de parâmetros por rota ─────────────────────────
+
+export type TechStackParamList = {
+  TechTabs:          undefined;
+  RequestsList:      { openOrderId?: string };
+  ServiceExecution:  { orderId: string };
+  ServiceSummary:    { orderId: string };
+  Agenda:            undefined;
+  CreateBudget:      { orderId: string };
+  AddService:        undefined;
+  Withdraw:          undefined;
+  TechAccount:       undefined;
+  EditProfile:       undefined;
+  Reviews:           undefined;
+  EditPublicProfile: undefined;
+  Settings:          undefined;
+  Notifications:     undefined;
+  Chat: {
+    conversaId: string;
+    outroNome: string;
+    pedidoNumero?: string;
+    pedidoId?: string;
+  };
+  HelpCenter:        undefined;
+  OpenDispute:       { orderId: string };
+};
+
+const Stack = createNativeStackNavigator<TechStackParamList>();
 
 export function TechStack() {
   return (

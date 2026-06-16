@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, TextInput, Alert, Switch, Modal,
+  Platform, StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -143,6 +144,7 @@ export function CommunicationsScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F0F2F5" />
 
       {/* Header */}
       <View style={s.header}>
@@ -389,7 +391,7 @@ export function CommunicationsScreen({ navigation }: any) {
 // ─── Estilos ───────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F0F2F5' },
+  safe: { flex: 1, backgroundColor: '#F0F2F5', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#1a1a1a', padding: 20, paddingTop: 16,

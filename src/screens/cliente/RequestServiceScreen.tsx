@@ -853,7 +853,7 @@ const s = StyleSheet.create({
     alignItems: 'center', borderWidth: 2, borderColor: '#EEE',
     elevation: 1, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4,
   },
-  catCardActive: { borderColor: colors.primary, backgroundColor: colors.primary + '06' },
+  catCardActive: { borderColor: colors.primary, backgroundColor: '#F5F5F5' },
   catLabel: { fontSize: 12, color: '#666', textAlign: 'center', marginTop: 8, fontWeight: '500' },
   catLabelActive: { color: colors.primary, fontWeight: '700' },
 
@@ -966,10 +966,10 @@ const s = StyleSheet.create({
     borderWidth: 2, borderColor: '#EEE',
     elevation: 1, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6,
   },
-  techCardActive: { borderColor: colors.primary, backgroundColor: colors.primary + '05' },
+  techCardActive: { borderColor: colors.primary, backgroundColor: '#F5F5F5' },
   techCardDimmed: { opacity: 0.4 },
   techAvatar: {
-    width: 50, height: 50, borderRadius: 14, backgroundColor: colors.primary + '15',
+    width: 50, height: 50, borderRadius: 14, backgroundColor: '#ECEEF5',
     justifyContent: 'center', alignItems: 'center', position: 'relative',
   },
   techInitials: { fontSize: 16, fontWeight: '700', color: colors.primary },

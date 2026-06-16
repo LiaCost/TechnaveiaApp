@@ -6,8 +6,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { colors } from '../theme';
 
 import { AuthStack } from './AuthStack';
-import { ClientTabs } from './ClientTabs';
-import { TechTabs } from './TechTabs';
 import { AdminStack } from './AdminStack';
 import { ClientStack } from './ClientStack';
 import { TechStack } from './TechStack';

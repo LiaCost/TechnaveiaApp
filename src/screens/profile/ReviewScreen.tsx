@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView,
   TouchableOpacity, TextInput, ScrollView, Alert, ActivityIndicator,
+  Platform, StatusBar, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme';
 import { orderService, ApiError } from '../../services/api';
 
 export function ReviewScreen({ navigation, route }: any) {
-  const { orderId, techNome } = route.params ?? {};
+  const { orderId, techNome, techFoto } = route.params ?? {};
 
   const [rating, setRating]   = useState(0);
   const [comment, setComment] = useState('');
@@ -67,11 +68,15 @@ export function ReviewScreen({ navigation, route }: any) {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Header de Avaliação */}
         <View style={styles.topSection}>
-          <View style={styles.techAvatar}>
-            <Text style={styles.avatarInitials}>
-              {techNome ? techNome.split(' ').map((n: string) => n[0]).slice(0, 2).join('') : '?'}
-            </Text>
-          </View>
+          {techFoto ? (
+            <Image source={{ uri: techFoto }} style={styles.techAvatarImg} />
+          ) : (
+            <View style={styles.techAvatar}>
+              <Text style={styles.avatarInitials}>
+                {techNome ? techNome.split(' ').map((n: string) => n[0]).slice(0, 2).join('') : '?'}
+              </Text>
+            </View>
+          )}
           <Text style={styles.title}>
             Como foi o serviço{techNome ? ` de ${techNome}` : ''}?
           </Text>
@@ -187,7 +192,7 @@ export function ReviewScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
+  container: { flex: 1, backgroundColor: '#FFF', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', padding: 20,
@@ -200,6 +205,9 @@ const styles = StyleSheet.create({
     width: 80, height: 80, borderRadius: 40,
     backgroundColor: colors.primary + '20',
     justifyContent: 'center', alignItems: 'center', marginBottom: 15,
+  },
+  techAvatarImg: {
+    width: 80, height: 80, borderRadius: 40, marginBottom: 15,
   },
   avatarInitials: { fontSize: 24, fontWeight: '700', color: colors.primary },
   title: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', color: colors.dark1 },
@@ -229,7 +237,7 @@ const styles = StyleSheet.create({
   optionBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   optionBtnNo: { backgroundColor: '#F44336', borderColor: '#F44336' },
   optionText: { fontSize: 14, fontWeight: '600', color: '#555' },
-  footer: { padding: 20, borderTopWidth: 1, borderTopColor: '#EEE' },
+  footer: { padding: 20, paddingBottom: Platform.OS === 'android' ? 34 : 20, borderTopWidth: 1, borderTopColor: '#EEE' },
   submitBtn: {
     backgroundColor: colors.dark1, borderRadius: 14, height: 54,
     justifyContent: 'center', alignItems: 'center',
