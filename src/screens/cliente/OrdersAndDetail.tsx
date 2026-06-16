@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, ActivityIndicator, Alert,
   Platform, StatusBar, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme';
 import { orderService, Order } from '../../services/api';
 
@@ -38,12 +39,14 @@ export function OrderDetailScreen({ navigation, route }: any) {
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  useEffect(() => {
-    orderService.getById(orderId)
-      .then(setOrder)
-      .catch(() => Alert.alert('Erro', 'Pedido não encontrado.'))
-      .finally(() => setIsLoading(false));
-  }, [orderId]);
+  useFocusEffect(
+    useCallback(() => {
+      orderService.getById(orderId)
+        .then(setOrder)
+        .catch(() => Alert.alert('Erro', 'Pedido não encontrado.'))
+        .finally(() => setIsLoading(false));
+    }, [orderId])
+  );
 
   async function openChat() {
     if (!order) return;
@@ -221,12 +224,14 @@ export function OrderDetailScreen({ navigation, route }: any) {
                 </View>
               </View>
 
-              <TouchableOpacity
-                style={s.chatBtn}
-                onPress={openChat}
-              >
-                <Ionicons name="chatbubble-outline" size={18} color={colors.primary} />
-              </TouchableOpacity>
+              {order.status === 'andamento' && (
+                <TouchableOpacity
+                  style={s.chatBtn}
+                  onPress={openChat}
+                >
+                  <Ionicons name="chatbubble-outline" size={18} color={colors.primary} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -300,7 +305,7 @@ export function OrderDetailScreen({ navigation, route }: any) {
 
       {/* ── Ações do rodapé (variam por status) ── */}
       <View style={s.footer}>
-        {order.status === 'concluido' && (
+        {order.status === 'concluido' && !order.avaliacao && (
           <>
             <TouchableOpacity
               style={s.btnPrimary}
@@ -320,6 +325,15 @@ export function OrderDetailScreen({ navigation, route }: any) {
               <Text style={s.btnSecondaryText}>Abrir disputa</Text>
             </TouchableOpacity>
           </>
+        )}
+
+        {order.status === 'concluido' && order.avaliacao && (
+          <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
+              <Text style={{ color: '#4CAF50', fontWeight: '600' }}>Serviço avaliado</Text>
+            </View>
+          </View>
         )}
 
         {(order.status === 'solicitado' || order.status === 'aceito') && (

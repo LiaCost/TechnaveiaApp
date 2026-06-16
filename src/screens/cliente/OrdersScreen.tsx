@@ -4,6 +4,7 @@ import {
   SafeAreaView, ActivityIndicator, RefreshControl, Alert, StatusBar, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme';
 import { orderService, Order } from '../../services/api';
 
@@ -100,7 +101,7 @@ export function OrdersScreen({ navigation }: any) {
     }
   }, []);
 
-  useEffect(() => { loadOrders(); }, []);
+  useFocusEffect(useCallback(() => { loadOrders(); }, []));
 
   const filtered = orders.filter(o => TAB_STATUSES[activeTab].includes(o.status));
 

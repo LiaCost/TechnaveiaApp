@@ -141,14 +141,23 @@ export function ServiceExecutionScreen({ navigation, route }: any) {
                 </View>
                 <TouchableOpacity
                   style={styles.actionCircle}
-                  onPress={() => {
-                    if (orderId) {
-                      // Abre chat do pedido
+                  onPress={async () => {
+                    if (!orderId) return;
+                    try {
+                      const token = await AsyncStorage.getItem('@technaveia:token');
+                      const res = await fetch(`${BASE_URL}/conversations/by-order/${orderId}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      const json = await res.json();
+                      const conversaId = json.data?.conversaId ?? json.conversaId;
+                      if (!conversaId) { Alert.alert('Chat não disponível'); return; }
                       navigation.navigate('Chat', {
-                        conversaId: `pending_${orderId}`,
+                        conversaId,
                         outroNome: clientName,
                         pedidoId: orderId,
                       });
+                    } catch {
+                      Alert.alert('Erro', 'Não foi possível abrir o chat.');
                     }
                   }}
                 >

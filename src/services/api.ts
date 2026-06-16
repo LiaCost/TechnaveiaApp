@@ -77,6 +77,7 @@ export interface Order {
   tecnicoId?: string;
   tecnico?: Technician;
   cliente?: { nome: string; foto?: string };
+  avaliacao?: { id: string; nota: number } | null;
   categoria: string;
   subcategoria: string;
   descricao: string;
@@ -306,6 +307,7 @@ function normalizeOrder(raw: any): Order {
     tecnicoId: raw.tecnicoId ?? undefined,
     tecnico,
     cliente: raw.cliente ?? undefined,
+    avaliacao: raw.avaliacao ?? undefined,
     categoria: raw.categoria,
     subcategoria: raw.subcategoria,
     descricao: raw.descricao,
