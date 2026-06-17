@@ -186,6 +186,15 @@ EXPO_PUBLIC_API_URL=http://localhost:3000/v1
 - [ ] **Monitoramento** — Integração com Sentry para rastreamento de erros
 - [ ] **Avaliação por fotos** — Permitir que o cliente envie fotos na avaliação
 
+👥 Equipe de desenvolvimento
+
+Desenvolvido por estudantes da UCB (Universidade Católica de Brasília):
+
+Lia Costa (https://github.com/LiaCost)
+Sarah Silva (https://github.com/sah524)
+Taís Barbosa (https://github.com/TaisBds) 
+Andressa Castro (https://github.com/AndressaCst)
+
 ## 📄 Licença
 
 Projeto privado — Todos os direitos reservados.
